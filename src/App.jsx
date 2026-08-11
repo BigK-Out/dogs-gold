@@ -9,6 +9,7 @@ import {
 } from "@react-three/postprocessing";
 import { Effect } from "postprocessing";
 import brush from "./burash01.png";
+import { pointer, startPointerTracking, PointerProjector } from "./hooks/usePointer";
 
 // --- Warp post-processing effect ---
 
@@ -41,7 +42,6 @@ function RippleScene({ displacementRef }) {
   const { gl, size } = useThree();
   const brushScene = useMemo(() => new THREE.Scene(), []);
   const meshesRef = useRef([]);
-  const mouseRef = useRef(new THREE.Vector2(0, 0));
   const prevMouseRef = useRef(new THREE.Vector2(0, 0));
   const currentWaveRef = useRef(0);
   const MAX = 50;
@@ -102,19 +102,16 @@ function RippleScene({ displacementRef }) {
       }
     });
 
-    const onMove = (e) => {
-      mouseRef.current.x = e.clientX - size.width / 2;
-      mouseRef.current.y = size.height / 2 - e.clientY;
-    };
-    window.addEventListener("mousemove", onMove);
     return () => {
-      window.removeEventListener("mousemove", onMove);
       rt.dispose();
     };
   }, []);
 
   useFrame(() => {
-    const mouse = mouseRef.current;
+    const mouse = {
+      x: pointer.smooth.x - size.width / 2,
+      y: size.height / 2 - pointer.smooth.y,
+    };
     const prev = prevMouseRef.current;
 
     if (Math.abs(mouse.x - prev.x) > 4 || Math.abs(mouse.y - prev.y) > 4) {
@@ -302,7 +299,7 @@ function DiamondBackground() {
 
 const COLLISION_RADIUS = 0.75;
 
-function DogsPhysics({ physicsRef, count, hw, hh, mouseWorldRef, mouseSpeedRef }) {
+function DogsPhysics({ physicsRef, count, hw, hh }) {
   useFrame(() => {
     const dogs = physicsRef.current;
     if (!dogs.length) return;
@@ -363,8 +360,8 @@ function DogsPhysics({ physicsRef, count, hw, hh, mouseWorldRef, mouseSpeedRef }
       }
 
       // Mouse repulsion — force scales with mouse speed
-      const mw = mouseWorldRef.current
-      const ms = mouseSpeedRef.current
+      const mw = pointer.world
+      const ms = pointer.speed
       if (mw) {
         const mdx = d.x - mw.x
         const mdy = d.y - mw.y
@@ -519,9 +516,6 @@ function TextColorSampler({ textRef }) {
 
 function Scene({ count = 50, textRef }) {
   const displacementRef = useRef(null);
-  const mouseWorldRef = useRef(null);
-  const mouseSpeedRef = useRef(0);
-  const prevMouseWorld = useRef(null);
   const { viewport, camera, gl } = useThree();
   const { width: hw2, height: hh2 } = viewport.getCurrentViewport(
     camera,
@@ -529,34 +523,6 @@ function Scene({ count = 50, textRef }) {
   );
   const hw = hw2 / 2,
     hh = hh2 / 2;
-
-  // Track mouse in world space at z=-40
-  const raycaster = useMemo(() => new THREE.Raycaster(), [])
-  const ndcMouse = useMemo(() => new THREE.Vector2(), [])
-  const dogPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), 40), [])
-  const intersection = useMemo(() => new THREE.Vector3(), [])
-
-  useEffect(() => {
-    const canvas = gl.domElement
-    const onMove = (e) => {
-      const rect = canvas.getBoundingClientRect()
-      ndcMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-      ndcMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
-      raycaster.setFromCamera(ndcMouse, camera)
-      if (raycaster.ray.intersectPlane(dogPlane, intersection)) {
-        const cur = { x: intersection.x, y: intersection.y }
-        if (prevMouseWorld.current) {
-          const dx = cur.x - prevMouseWorld.current.x
-          const dy = cur.y - prevMouseWorld.current.y
-          mouseSpeedRef.current = Math.sqrt(dx * dx + dy * dy)
-        }
-        prevMouseWorld.current = { x: cur.x, y: cur.y }
-        mouseWorldRef.current = cur
-      }
-    }
-    window.addEventListener("mousemove", onMove)
-    return () => window.removeEventListener("mousemove", onMove)
-  }, [camera, gl])
 
   const physicsRef = useRef(
     Array.from({ length: count }, () => {
@@ -582,9 +548,10 @@ function Scene({ count = 50, textRef }) {
       <ambientLight intensity={0.2} />
       <spotLight position={[10, 10, 10]} intensity={1} />
       <Suspense fallback={null}>
+        <PointerProjector planeZ={-40} />
         <DiamondBackground />
         <Environment preset="sunset" />
-        <DogsPhysics physicsRef={physicsRef} count={count} hw={hw} hh={hh} mouseWorldRef={mouseWorldRef} mouseSpeedRef={mouseSpeedRef} />
+        <DogsPhysics physicsRef={physicsRef} count={count} hw={hw} hh={hh} />
         {Array.from({ length: count }, (_, i) => (
           <Dog key={i} index={i} physicsRef={physicsRef} />
         ))}
@@ -678,6 +645,7 @@ function Cursor() {
 }
 
 export default function App() {
+  startPointerTracking();
   const textRef = useRef()
 
   return (
