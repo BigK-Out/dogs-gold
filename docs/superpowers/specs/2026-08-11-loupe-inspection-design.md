@@ -164,8 +164,12 @@ gold scene with no dogs and no obvious error. Every public asset must route
 through `import.meta.env.BASE_URL`, with `base: '/vscodemainrepo/'` set in
 `vite.config.js`.
 
-Pages on a private repository requires a paid plan; repository visibility must
-be confirmed before wiring the workflow.
+The repository is private, which normally blocks Pages, but the account is on
+GitHub Pro, so publishing from a private repository is permitted. The plan
+could not be confirmed through the API — the current token lacks the
+`read:user` scope and reports `plan: null` — so the first deploy step is
+enabling Pages, which fails loudly if the plan is insufficient rather than
+publishing something broken.
 
 ## Performance
 
