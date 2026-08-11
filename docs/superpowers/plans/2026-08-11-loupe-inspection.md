@@ -350,7 +350,7 @@ The store is a module singleton rather than React state because it updates every
 **Interfaces:**
 - Consumes: nothing
 - Produces:
-  - `pointer` — `{ screen: {x,y}, smooth: {x,y}, world: {x,y} | null, speed: number }`, mutated in place
+  - `pointer` — `{ screen: {x,y}, smooth: {x,y}, world: {x,y} | null, worldSmooth: {x,y} | null, speed: number }`, mutated in place. Use `world` for physics, `worldSmooth` for selection, `smooth` for anything drawn.
   - `startPointerTracking()` — idempotent; attaches the listener and the smoothing loop
   - `<PointerProjector planeZ={-40} />` — in-canvas component filling `pointer.world` and `pointer.speed`
   - Consumed by Tasks 5, 6, 7, 8.
@@ -366,10 +366,11 @@ import { useThree, useFrame } from "@react-three/fiber"
 const SMOOTHING = 0.08
 
 export const pointer = {
-  screen: { x: 0, y: 0 },
-  smooth: { x: 0, y: 0 },
-  world: null,
-  speed: 0,
+  screen: { x: 0, y: 0 },   // raw, instantaneous
+  smooth: { x: 0, y: 0 },   // lerped, for anything drawn on screen
+  world: null,              // from `screen` — physics repulsion
+  worldSmooth: null,        // from `smooth` — loupe selection
+  speed: 0,                 // from `world` deltas
 }
 
 let started = false
@@ -394,8 +395,18 @@ export function startPointerTracking() {
   requestAnimationFrame(tick)
 }
 
-// Projects the *smoothed* pointer onto the dog plane. Uses `smooth` so the
-// selection lands exactly where the drawn lens appears.
+// Projects the pointer onto the dog plane twice, because the two consumers
+// genuinely want different things:
+//
+//   world       ← raw screen. Physics repulsion was event-driven and
+//                 instantaneous before this refactor; feeding it the lerped
+//                 value would add lag, keep nudging dogs after the pointer
+//                 stops, and understate peak speed so fast flicks push less.
+//   worldSmooth ← smoothed screen. Selection must agree with where the lens
+//                 is *drawn*, or the glass highlights one dog while the card
+//                 describes another.
+//
+// A second raycast per frame against one plane is negligible.
 export function PointerProjector({ planeZ = -40 }) {
   const { camera, gl } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -409,18 +420,29 @@ export function PointerProjector({ planeZ = -40 }) {
 
   useFrame(() => {
     const rect = gl.domElement.getBoundingClientRect()
-    ndc.x = ((pointer.smooth.x - rect.left) / rect.width) * 2 - 1
-    ndc.y = -((pointer.smooth.y - rect.top) / rect.height) * 2 + 1
-    raycaster.setFromCamera(ndc, camera)
-    if (!raycaster.ray.intersectPlane(plane, hit)) return
 
-    if (prev.current) {
-      const dx = hit.x - prev.current.x
-      const dy = hit.y - prev.current.y
-      pointer.speed = Math.sqrt(dx * dx + dy * dy)
+    const project = (sx, sy) => {
+      ndc.x = ((sx - rect.left) / rect.width) * 2 - 1
+      ndc.y = -((sy - rect.top) / rect.height) * 2 + 1
+      raycaster.setFromCamera(ndc, camera)
+      return raycaster.ray.intersectPlane(plane, hit)
+        ? { x: hit.x, y: hit.y }
+        : null
     }
-    prev.current = { x: hit.x, y: hit.y }
-    pointer.world = { x: hit.x, y: hit.y }
+
+    const raw = project(pointer.screen.x, pointer.screen.y)
+    if (raw) {
+      if (prev.current) {
+        const dx = raw.x - prev.current.x
+        const dy = raw.y - prev.current.y
+        pointer.speed = Math.sqrt(dx * dx + dy * dy)
+      }
+      prev.current = raw
+      pointer.world = raw
+    }
+
+    const sm = project(pointer.smooth.x, pointer.smooth.y)
+    if (sm) pointer.worldSmooth = sm
   }, -2) // before DogsPhysics at -1
 
   return null
@@ -438,9 +460,12 @@ In `RippleScene`, delete the `onMove` handler and its listener (lines 105–109 
 
 ```jsx
 // at the top of RippleScene's useFrame, replacing `const mouse = mouseRef.current`
+// Raw, not smoothed: the brush trail was event-driven and instantaneous before
+// this refactor, and the lerped value would make it lag and keep spawning
+// strokes after the pointer stops.
 const mouse = {
-  x: pointer.smooth.x - size.width / 2,
-  y: size.height / 2 - pointer.smooth.y,
+  x: pointer.screen.x - size.width / 2,
+  y: size.height / 2 - pointer.screen.y,
 }
 ```
 
@@ -669,7 +694,8 @@ export const DWELL_MS = 500
 export function DogSelector({ physicsRef, selectionRef, count }) {
   useFrame(() => {
     const dogs = physicsRef.current
-    const mw = pointer.world
+    // worldSmooth, not world: selection must agree with where the lens is drawn.
+    const mw = pointer.worldSmooth
     if (!dogs || !dogs.length || !mw) return
 
     let nearestIndex = null
