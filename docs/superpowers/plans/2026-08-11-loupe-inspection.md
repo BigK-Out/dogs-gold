@@ -37,52 +37,37 @@
 
 ---
 
-### Task 1: Transparent loupe asset
+### Task 1: Loupe asset — ALREADY COMPLETE
 
-`src/newdesign.png` is 577x433 with **no alpha channel** and pure-white corners. Used as-is it renders a white rectangle over the near-black scene. This task produces a trimmed, transparent version.
+**No work required. Do not re-do this task.** It is recorded here so later
+tasks can rely on its measurements.
 
-The white is removed by flood-filling inward from each corner rather than by making all white transparent, so the specular highlights *inside* the lens body survive.
+An earlier revision of this plan derived the asset from `src/newdesign.png`, a
+3/4-angle photograph of a camera lens. That was rejected on sight: at cursor
+size it read as a squashed dark ellipse, it disappeared against the scene's
+black regions, and its glass had a photograph of a garden baked into it.
 
-**Files:**
-- Create: `src/loupe/loupe.png`
-- Keep: `src/newdesign.png` (untouched original)
+It was replaced with a user-supplied magnifying glass — gold rim, wooden
+handle — which suits the gold palette and is unmistakably a magnifier.
 
-- [ ] **Step 1: Generate the cutout**
+**Asset:** `src/loupe/loupe.png`, 1024x1024, RGBA, 274KB.
 
-```bash
-cd projects/dogs-gold
-mkdir -p src/loupe
-convert src/newdesign.png -alpha set -fuzz 12% \
-  -fill none -floodfill +0+0 white \
-  -fill none -floodfill +576+0 white \
-  -fill none -floodfill +0+432 white \
-  -fill none -floodfill +576+432 white \
-  -trim +repage src/loupe/loupe.png
-```
+**Measured geometry** (from the alpha channel; later tasks depend on these):
 
-- [ ] **Step 2: Verify alpha and dimensions**
+| Property | Value | As fraction of image width |
+| --- | --- | --- |
+| Glass centre X | 368px | **0.359** |
+| Glass centre Y | 350px | **0.342** |
+| Glass radius | 225px | **0.220** |
 
-```bash
-identify -format 'size=%wx%h alpha=%A\n' src/loupe/loupe.png
-```
+Two consequences that drive Task 5:
 
-Expected: `size=388x411 alpha=True`
-
-- [ ] **Step 3: Verify no white fringe over the scene background**
-
-```bash
-convert -size 500x500 xc:'#0a0800' src/loupe/loupe.png \
-  -gravity center -composite /tmp/loupe-check.png
-```
-
-Open `/tmp/loupe-check.png`. Expected: lens on black, no white halo, no white corners, lens body intact. If a halo appears, raise `-fuzz` to `18%` and repeat.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add src/loupe/loupe.png
-git commit -m "feat(loupe): add transparent-background lens asset"
-```
+- **The glass interior is already fully transparent** (`alpha = 0`). No mask of
+  any kind is needed — the scene shows through natively.
+- **The glass is not at the image centre.** The handle occupies the lower
+  right, so the glass sits up and to the left. Centring the PNG on the pointer
+  would place the *handle* under the cursor. The image must be offset so the
+  glass centre lands on the pointer.
 
 ---
 
@@ -496,7 +481,9 @@ git commit -m "refactor: single pointer source for cursor, ripple and physics"
 
 ### Task 5: Loupe image replaces the SVG cursor
 
-The lens photo has a garden scene baked into its glass, so the glass is cleared with a CSS radial mask. Keeping this in CSS rather than baking it into the asset means the radius is tunable in devtools without regenerating the PNG.
+The asset's glass is already transparent, so there is no mask. The only
+subtlety is the offset: the image must be positioned so the **glass centre**,
+not the image centre, sits on the pointer.
 
 **Files:**
 - Create: `src/loupe/Loupe.jsx`
@@ -504,7 +491,8 @@ The lens photo has a garden scene baked into its glass, so the glass is cleared 
 
 **Interfaces:**
 - Consumes: `pointer` from Task 4, `src/loupe/loupe.png` from Task 1
-- Produces: `<Loupe />`; exports `GLASS_RADIUS_RATIO` for Task 8's card offset.
+- Produces: `<Loupe />`; exports `LOUPE_SIZE_PX`, `GLASS_RADIUS_PX`,
+  `GLASS_CX_PX`, `GLASS_CY_PX` for Task 8's card offset.
 
 - [ ] **Step 1: Write the component**
 
@@ -514,9 +502,17 @@ import { useEffect, useRef } from "react"
 import { pointer } from "../hooks/usePointer"
 import lensUrl from "./loupe.png"
 
-export const LOUPE_SIZE_PX = 190
-// Fraction of the image's half-width that is glass. Tune in devtools.
-export const GLASS_RADIUS_RATIO = 0.17
+export const LOUPE_SIZE_PX = 260
+
+// Measured from the asset's alpha channel (see Task 1). The source image is
+// square, so every fraction is of LOUPE_SIZE_PX.
+const GLASS_CX_RATIO = 0.359
+const GLASS_CY_RATIO = 0.342
+const GLASS_RADIUS_RATIO = 0.220
+
+export const GLASS_CX_PX = LOUPE_SIZE_PX * GLASS_CX_RATIO
+export const GLASS_CY_PX = LOUPE_SIZE_PX * GLASS_CY_RATIO
+export const GLASS_RADIUS_PX = LOUPE_SIZE_PX * GLASS_RADIUS_RATIO
 
 export default function Loupe() {
   const ref = useRef()
@@ -525,8 +521,12 @@ export default function Loupe() {
     let id
     const tick = () => {
       if (ref.current) {
-        ref.current.style.transform =
-          `translate(${pointer.smooth.x}px, ${pointer.smooth.y}px) translate(-50%, -50%)`
+        // Offset by the glass centre, not the image centre — the handle
+        // occupies the lower right, so centring the PNG would put the handle
+        // under the cursor.
+        const x = pointer.smooth.x - GLASS_CX_PX
+        const y = pointer.smooth.y - GLASS_CY_PX
+        ref.current.style.transform = `translate(${x}px, ${y}px)`
       }
       id = requestAnimationFrame(tick)
     }
@@ -534,32 +534,24 @@ export default function Loupe() {
     return () => cancelAnimationFrame(id)
   }, [])
 
-  const holePct = GLASS_RADIUS_RATIO * 100
-  // Donut mask: clear the glass so the scene shows through, keep the barrel.
-  const mask = `radial-gradient(circle at 50% 50%, transparent 0 ${holePct}%, #000 ${holePct + 1.5}% 100%)`
-
   return (
-    <div
+    <img
       ref={ref}
+      src={lensUrl}
+      alt=""
+      draggable={false}
       style={{
         position: "fixed",
         top: 0,
         left: 0,
         width: LOUPE_SIZE_PX,
+        height: LOUPE_SIZE_PX,
         pointerEvents: "none",
         zIndex: 9999,
         willChange: "transform",
-        maskImage: mask,
-        WebkitMaskImage: mask,
+        display: "block",
       }}
-    >
-      <img
-        src={lensUrl}
-        alt=""
-        draggable={false}
-        style={{ width: "100%", display: "block" }}
-      />
-    </div>
+    />
   )
 }
 ```
@@ -570,9 +562,9 @@ Delete the entire `Cursor` component (lines 601–678) and its `<Cursor />` usag
 
 - [ ] **Step 3: Verify**
 
-Reload the page. Expected: the photographic lens follows the pointer with the same easing the SVG had; the scene is visible through the centre of the lens, not a garden photo; no white box or halo anywhere; no console errors.
+Reload the page. Expected: the gold magnifying glass follows the pointer with the same easing the SVG had; the **glass ring sits centred on the pointer**, with the handle trailing to the lower right; the scene is fully visible through the glass; no white box or halo anywhere; no console errors.
 
-If the glass hole is misaligned or the wrong size, adjust `GLASS_RADIUS_RATIO` and reload — do not modify the PNG.
+If the glass sits off the pointer, adjust `GLASS_CX_RATIO` / `GLASS_CY_RATIO` and reload — do not modify the PNG. If the loupe feels too large or small, change `LOUPE_SIZE_PX`; the glass geometry scales with it automatically.
 
 - [ ] **Step 4: Commit**
 
@@ -794,7 +786,7 @@ git commit -m "feat(loupe): select and enlarge the dog under the lens"
 - Modify: `src/App.jsx` (mount the card, hoist `selectionRef`)
 
 **Interfaces:**
-- Consumes: `credsFor` (Task 2), `pointer` and `LOCKED` (Tasks 3–4), `LOUPE_SIZE_PX` (Task 5), `selectionRef` (Task 7)
+- Consumes: `credsFor` (Task 2), `pointer` and `LOCKED` (Tasks 3–4), `GLASS_RADIUS_PX` (Task 5), `selectionRef` (Task 7)
 - Produces: `<CredsCard selectionRef />`
 
 - [ ] **Step 1: Write the card**
@@ -804,11 +796,11 @@ git commit -m "feat(loupe): select and enlarge the dog under the lens"
 import { useEffect, useRef, useState } from "react"
 import { pointer } from "../hooks/usePointer"
 import { credsFor } from "./creds"
-import { LOUPE_SIZE_PX } from "./Loupe"
+import { GLASS_RADIUS_PX } from "./Loupe"
 import { LOCKED } from "./selection"
 
 const CARD_WIDTH = 250
-const GAP = 24
+const GAP = 28
 
 export default function CredsCard({ selectionRef }) {
   const boxRef = useRef()
@@ -824,11 +816,13 @@ export default function CredsCard({ selectionRef }) {
       setLockedIndex((prev) => (prev === next ? prev : next))
 
       if (boxRef.current) {
-        const half = LOUPE_SIZE_PX / 2
-        const flip = pointer.smooth.x + half + GAP + CARD_WIDTH > window.innerWidth
-        const x = flip
-          ? pointer.smooth.x - half - GAP - CARD_WIDTH
-          : pointer.smooth.x + half + GAP
+        // Default to the LEFT of the glass: the loupe's handle juts out to the
+        // lower right, so a right-hand card would sit on top of it. Flip to
+        // the right only when there is no room on the left.
+        const leftX = pointer.smooth.x - GLASS_RADIUS_PX - GAP - CARD_WIDTH
+        const x = leftX < 16
+          ? pointer.smooth.x + GLASS_RADIUS_PX + GAP
+          : leftX
         const y = Math.min(
           Math.max(pointer.smooth.y - 60, 16),
           window.innerHeight - 220,
@@ -906,7 +900,7 @@ function Row({ label, value }) {
 
 - [ ] **Step 3: Verify**
 
-Reload. Expected: hold the lens over a dog for about half a second and the card fades in beside it showing name, age, origin, pedigree, grade, certificate, value; move away and it fades out; move slowly across a cluster and the card does not strobe; the same dog always shows the same credentials, including after a page reload; near the right edge the card flips to the left of the lens; near the top or bottom it stays on screen. No console errors.
+Reload. Expected: hold the glass over a dog for about half a second and the card fades in to the left of it showing name, age, origin, pedigree, grade, certificate, value; move away and it fades out; move slowly across a cluster and the card does not strobe; the same dog always shows the same credentials, including after a page reload; the card never overlaps the loupe's handle; near the left edge it flips to the right; near the top or bottom it stays on screen. No console errors.
 
 - [ ] **Step 4: Commit**
 
@@ -1059,5 +1053,5 @@ Open `https://bigk-out.github.io/vscodemainrepo/`. Expected: the dogs load, the 
 
 - `App.jsx` is 731 lines and holds several components. Line numbers cited here are from the pre-change file and will drift as you work — locate code by component name, not by line.
 - There is uncommitted work in `src/App.jsx` at the time of writing. Do not revert or stash it; build on top.
-- Tunable constants, all deliberately in one place each: `GLASS_RADIUS_RATIO` and `LOUPE_SIZE_PX` in `Loupe.jsx`; `SELECT_RADIUS`, `RELEASE_MARGIN`, `DWELL_MS` in `useDogSelection.js`.
+- Tunable constants, all deliberately in one place each: `LOUPE_SIZE_PX`, `GLASS_CX_RATIO`, `GLASS_CY_RATIO`, `GLASS_RADIUS_RATIO` in `Loupe.jsx`; `SELECT_RADIUS`, `RELEASE_MARGIN`, `DWELL_MS` in `useDogSelection.js`. The three ratios are measured properties of the asset — change them only if the asset is replaced.
 - `useFrame` priorities now in use: `-2` projector, `-1` physics, `-0.5` selection, `0` dog transforms, `1` the effect composer. Keep new work inside that ordering.
