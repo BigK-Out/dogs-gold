@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Suspense, useRef, useState, useEffect, useMemo } from "react";
+import { Suspense, useRef, useEffect, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Environment } from "@react-three/drei";
 import {
@@ -85,7 +85,7 @@ function RippleScene({ displacementRef }) {
   useEffect(() => {
     const loader = new THREE.TextureLoader();
     loader.load(brush, (tex) => {
-      const geo = new THREE.PlaneGeometry(80, 80);
+      const geo = new THREE.PlaneGeometry(140, 140);
       for (let i = 0; i < MAX; i++) {
         const mat = new THREE.MeshBasicMaterial({
           map: tex,
@@ -302,7 +302,7 @@ function DiamondBackground() {
 
 const COLLISION_RADIUS = 0.75;
 
-function DogsPhysics({ physicsRef, count, hw, hh }) {
+function DogsPhysics({ physicsRef, count, hw, hh, mouseWorldRef, mouseSpeedRef }) {
   useFrame(() => {
     const dogs = physicsRef.current;
     if (!dogs.length) return;
@@ -332,10 +332,83 @@ function DogsPhysics({ physicsRef, count, hw, hh }) {
         d.vy *= -1;
         d.flash = 0.6;
       }
+
+      // Text barrier — bottom-right box, dogs bounce off edges
+      const bx0 = hw * 0.55
+      const by1 = -hh * 0.55
+      const bx1 = hw
+      const by0 = -hh
+      const r = COLLISION_RADIUS
+      if (d.x + r > bx0 && d.x - r < bx1 && d.y + r > by0 && d.y - r < by1) {
+        // Find smallest penetration axis to resolve
+        const penLeft = (d.x + r) - bx0
+        const penBottom = (d.y + r) - by0
+        const penRight = bx1 - (d.x - r)
+        const penTop = by1 - (d.y - r)
+        const minPen = Math.min(penLeft, penBottom, penRight, penTop)
+        if (minPen === penLeft) {
+          d.x = bx0 - r
+          if (d.vx > 0) d.vx *= -1
+        } else if (minPen === penTop) {
+          d.y = by1 + r
+          if (d.vy < 0) d.vy *= -1
+        } else if (minPen === penRight) {
+          d.x = bx1 + r
+          if (d.vx < 0) d.vx *= -1
+        } else {
+          d.y = by0 - r
+          if (d.vy > 0) d.vy *= -1
+        }
+        d.flash = 0.6
+      }
+
+      // Mouse repulsion — force scales with mouse speed
+      const mw = mouseWorldRef.current
+      const ms = mouseSpeedRef.current
+      if (mw) {
+        const mdx = d.x - mw.x
+        const mdy = d.y - mw.y
+        const md2 = mdx * mdx + mdy * mdy
+        const radius = 4.5
+        if (md2 < radius * radius && md2 > 0.001) {
+          const md = Math.sqrt(md2)
+          const falloff = 1 - md / radius
+          const awayX = mdx / md
+          const awayY = mdy / md
+          // Impact scales with mouse speed — dead zone for slow movement
+          const effectiveSpeed = Math.max(ms - 0.15, 0)
+          const impact = Math.min(effectiveSpeed * 0.06, 0.05) * falloff
+          d.vx += awayX * impact
+          d.vy += awayY * impact
+          // Steer only above threshold
+          const speed = Math.sqrt(d.vx * d.vx + d.vy * d.vy)
+          const steer = 0.03 * falloff * Math.min(effectiveSpeed, 1)
+          d.vx = d.vx * (1 - steer) + awayX * speed * steer
+          d.vy = d.vy * (1 - steer) + awayY * speed * steer
+          // Spin boost on impact
+          const spinBoost = impact * 1.5
+          d.spinRate = Math.min((d.spinRate || 0) + spinBoost, 0.04)
+        }
+      }
+
+      // Decelerate back to base speed
+      const spd = Math.sqrt(d.vx * d.vx + d.vy * d.vy)
+      const baseSpeed = d.baseSpeed || 0.008
+      if (spd > baseSpeed) {
+        const drag = 0.995
+        d.vx *= drag
+        d.vy *= drag
+      }
+
+      // Spin: use spinRate if boosted, decay back to base
+      const baseSpin = 0.0008
+      const spin = d.spinRate || baseSpin
+      d.rX += spin * 0.2
+      d.rY += spin
+      d.rZ += spin * 0.2
+      if (spin > baseSpin) d.spinRate *= 0.97
+
       d.flash = (d.flash || 0) * 0.85;
-      d.rX += d.hovered ? 0.005 : 0.0003;
-      d.rY += d.hovered ? 0.012 : 0.0015;
-      d.rZ += d.hovered ? 0.005 : 0.0003;
     }
 
     // Collision detection
@@ -379,7 +452,6 @@ function DogsPhysics({ physicsRef, count, hw, hh }) {
 function Dog({ index, physicsRef }) {
   const ref = useRef();
   const { nodes, materials } = useGLTF("/upgradeddog-v1-transformed.glb");
-  const [hovered, setHovered] = useState(false);
 
   const material = useMemo(() => {
     const mat = materials.skin.clone();
@@ -391,26 +463,11 @@ function Dog({ index, physicsRef }) {
     return mat;
   }, []);
 
-  useEffect(() => {
-    if (physicsRef.current[index]) physicsRef.current[index].hovered = hovered;
-    document.body.style.cursor = hovered ? "pointer" : "auto";
-    return () => {
-      document.body.style.cursor = "auto";
-    };
-  }, [hovered]);
-
-  useFrame((state) => {
+  useFrame(() => {
     const d = physicsRef.current[index];
     if (!d || !ref.current) return;
-    const t = state.clock.elapsedTime;
-    const wobbleX = d.hovered ? Math.sin(t * 10) * 0.15 : 0;
-    const wobbleY = d.hovered ? Math.cos(t * 10) * 0.15 : 0;
-    ref.current.position.set(d.x + wobbleX, d.y + wobbleY, d.z);
+    ref.current.position.set(d.x, d.y, d.z);
     ref.current.rotation.set(d.rX, d.rY, d.rZ);
-    const target = d.hovered ? 0.1 : 0.065;
-    ref.current.scale.setScalar(
-      ref.current.scale.x + (target - ref.current.scale.x) * 0.1,
-    );
   }, 0);
 
   return (
@@ -419,11 +476,6 @@ function Dog({ index, physicsRef }) {
       geometry={nodes.dogmodel.geometry}
       material={material}
       scale={0.065}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        setHovered(true);
-      }}
-      onPointerOut={() => setHovered(false)}
     />
   );
 }
@@ -467,13 +519,44 @@ function TextColorSampler({ textRef }) {
 
 function Scene({ count = 50, textRef }) {
   const displacementRef = useRef(null);
-  const { viewport, camera } = useThree();
+  const mouseWorldRef = useRef(null);
+  const mouseSpeedRef = useRef(0);
+  const prevMouseWorld = useRef(null);
+  const { viewport, camera, gl } = useThree();
   const { width: hw2, height: hh2 } = viewport.getCurrentViewport(
     camera,
     [0, 0, -40],
   );
   const hw = hw2 / 2,
     hh = hh2 / 2;
+
+  // Track mouse in world space at z=-40
+  const raycaster = useMemo(() => new THREE.Raycaster(), [])
+  const ndcMouse = useMemo(() => new THREE.Vector2(), [])
+  const dogPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), 40), [])
+  const intersection = useMemo(() => new THREE.Vector3(), [])
+
+  useEffect(() => {
+    const canvas = gl.domElement
+    const onMove = (e) => {
+      const rect = canvas.getBoundingClientRect()
+      ndcMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      ndcMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+      raycaster.setFromCamera(ndcMouse, camera)
+      if (raycaster.ray.intersectPlane(dogPlane, intersection)) {
+        const cur = { x: intersection.x, y: intersection.y }
+        if (prevMouseWorld.current) {
+          const dx = cur.x - prevMouseWorld.current.x
+          const dy = cur.y - prevMouseWorld.current.y
+          mouseSpeedRef.current = Math.sqrt(dx * dx + dy * dy)
+        }
+        prevMouseWorld.current = { x: cur.x, y: cur.y }
+        mouseWorldRef.current = cur
+      }
+    }
+    window.addEventListener("mousemove", onMove)
+    return () => window.removeEventListener("mousemove", onMove)
+  }, [camera, gl])
 
   const physicsRef = useRef(
     Array.from({ length: count }, () => {
@@ -485,10 +568,10 @@ function Scene({ count = 50, textRef }) {
         z: -40,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
+        baseSpeed: speed,
         rX: Math.random() * Math.PI,
         rY: Math.random() * Math.PI,
         rZ: Math.random() * Math.PI,
-        hovered: false,
       };
     }),
   );
@@ -501,7 +584,7 @@ function Scene({ count = 50, textRef }) {
       <Suspense fallback={null}>
         <DiamondBackground />
         <Environment preset="sunset" />
-        <DogsPhysics physicsRef={physicsRef} count={count} hw={hw} hh={hh} />
+        <DogsPhysics physicsRef={physicsRef} count={count} hw={hw} hh={hh} mouseWorldRef={mouseWorldRef} mouseSpeedRef={mouseSpeedRef} />
         {Array.from({ length: count }, (_, i) => (
           <Dog key={i} index={i} physicsRef={physicsRef} />
         ))}
@@ -514,6 +597,85 @@ function Scene({ count = 50, textRef }) {
 }
 
 // --- App ---
+
+function Cursor() {
+  const cursorRef = useRef()
+  const pos = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+  const mouse = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+
+  useEffect(() => {
+    const onMove = (e) => {
+      mouse.current.x = e.clientX
+      mouse.current.y = e.clientY
+    }
+    window.addEventListener("mousemove", onMove)
+
+    let animId
+    const tick = () => {
+      pos.current.x += (mouse.current.x - pos.current.x) * 0.08
+      pos.current.y += (mouse.current.y - pos.current.y) * 0.08
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate(${pos.current.x}px, ${pos.current.y}px)`
+      }
+      animId = requestAnimationFrame(tick)
+    }
+    animId = requestAnimationFrame(tick)
+
+    return () => {
+      window.removeEventListener("mousemove", onMove)
+      cancelAnimationFrame(animId)
+    }
+  }, [])
+
+  return (
+    <div ref={cursorRef} style={{
+      position: "fixed",
+      top: 0, left: 0,
+      transform: "translate(-50%, -50%)",
+      pointerEvents: "none",
+      zIndex: 9999,
+      mixBlendMode: "difference",
+      willChange: "transform",
+    }}>
+      <svg width="58" height="58" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Octagon body */}
+        <polygon
+          points="54,37.9 37.9,54 20.1,54 4,37.9 4,20.1 20.1,4 37.9,4 54,20.1"
+          stroke="white" strokeWidth="1.5"
+        />
+        {/* Inner octagon rim */}
+        <polygon
+          points="50,36.3 36.3,50 21.7,50 8,36.3 8,21.7 21.7,8 36.3,8 50,21.7"
+          stroke="white" strokeWidth="0.5" opacity="0.35"
+        />
+        {/* Screw dots at flat edges */}
+        <circle cx="29" cy="5"  r="1.2" fill="white" opacity="0.6" />
+        <circle cx="29" cy="53" r="1.2" fill="white" opacity="0.6" />
+        <circle cx="5"  cy="29" r="1.2" fill="white" opacity="0.6" />
+        <circle cx="53" cy="29" r="1.2" fill="white" opacity="0.6" />
+        {/* Corner screw dots */}
+        <circle cx="10.5" cy="10.5" r="1" fill="white" opacity="0.4" />
+        <circle cx="47.5" cy="10.5" r="1" fill="white" opacity="0.4" />
+        <circle cx="10.5" cy="47.5" r="1" fill="white" opacity="0.4" />
+        <circle cx="47.5" cy="47.5" r="1" fill="white" opacity="0.4" />
+        {/* Lens bezel outer */}
+        <circle cx="29" cy="29" r="18" stroke="white" strokeWidth="0.5" opacity="0.3" />
+        {/* Lens bezel ring */}
+        <circle cx="29" cy="29" r="16" stroke="white" strokeWidth="1.4" />
+        {/* Lens depth ring */}
+        <circle cx="29" cy="29" r="13.5" stroke="white" strokeWidth="0.5" opacity="0.4" />
+        {/* Lens inner glass */}
+        <circle cx="29" cy="29" r="11" stroke="white" strokeWidth="0.4" opacity="0.2" />
+        {/* Center dot */}
+        <circle cx="29" cy="29" r="1" fill="white" opacity="0.5" />
+        {/* Lens glare arc */}
+        <path d="M20 21 Q23 17 28 19" stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+        {/* Secondary glare */}
+        <path d="M22 25 Q24 23 26 24" stroke="white" strokeWidth="0.6" strokeLinecap="round" opacity="0.35" />
+      </svg>
+    </div>
+  )
+}
 
 export default function App() {
   const textRef = useRef()
@@ -528,8 +690,10 @@ export default function App() {
         height: "100vh",
         overflow: "hidden",
         background: "#0a0800",
+        cursor: "none",
       }}
     >
+      <Cursor />
       <Canvas
         gl={{ alpha: false, preserveDrawingBuffer: true }}
         camera={{ near: 0.01, far: 110, fov: 80 }}
