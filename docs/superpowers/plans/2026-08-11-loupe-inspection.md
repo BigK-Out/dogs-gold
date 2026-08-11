@@ -442,7 +442,12 @@ export function PointerProjector({ planeZ = -40 }) {
 }
 ```
 
-- [ ] **Step 2: Replace the three listeners in `App.jsx`**
+- [ ] **Step 2: Replace two of the three listeners in `App.jsx`**
+
+`Cursor`'s listener (line 611) is deliberately left alone in this task —
+Task 5 deletes the whole `Cursor` component, so rewiring it here would be
+work thrown away one task later. After this task there are two pointer
+sources; after Task 5 there is one.
 
 In `RippleScene`, delete the `onMove` handler and its listener (lines 105–109 and the `removeEventListener` on line 111), and replace the two uses of `mouseRef.current` in `useFrame` with values derived from the shared pointer:
 
