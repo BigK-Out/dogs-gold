@@ -108,9 +108,12 @@ function RippleScene({ displacementRef }) {
   }, []);
 
   useFrame(() => {
+    // Raw, not smoothed: the brush trail was event-driven and instantaneous
+    // before this refactor, and the lerped value would make it lag and keep
+    // spawning strokes after the pointer stops.
     const mouse = {
-      x: pointer.smooth.x - size.width / 2,
-      y: size.height / 2 - pointer.smooth.y,
+      x: pointer.screen.x - size.width / 2,
+      y: size.height / 2 - pointer.screen.y,
     };
     const prev = prevMouseRef.current;
 
