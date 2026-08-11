@@ -10,6 +10,7 @@ import {
 import { Effect } from "postprocessing";
 import brush from "./burash01.png";
 import { pointer, startPointerTracking, PointerProjector } from "./hooks/usePointer";
+import Loupe from "./loupe/Loupe";
 
 // --- Warp post-processing effect ---
 
@@ -568,85 +569,6 @@ function Scene({ count = 50, textRef }) {
 
 // --- App ---
 
-function Cursor() {
-  const cursorRef = useRef()
-  const pos = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
-  const mouse = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
-
-  useEffect(() => {
-    const onMove = (e) => {
-      mouse.current.x = e.clientX
-      mouse.current.y = e.clientY
-    }
-    window.addEventListener("mousemove", onMove)
-
-    let animId
-    const tick = () => {
-      pos.current.x += (mouse.current.x - pos.current.x) * 0.08
-      pos.current.y += (mouse.current.y - pos.current.y) * 0.08
-      if (cursorRef.current) {
-        cursorRef.current.style.transform = `translate(${pos.current.x}px, ${pos.current.y}px)`
-      }
-      animId = requestAnimationFrame(tick)
-    }
-    animId = requestAnimationFrame(tick)
-
-    return () => {
-      window.removeEventListener("mousemove", onMove)
-      cancelAnimationFrame(animId)
-    }
-  }, [])
-
-  return (
-    <div ref={cursorRef} style={{
-      position: "fixed",
-      top: 0, left: 0,
-      transform: "translate(-50%, -50%)",
-      pointerEvents: "none",
-      zIndex: 9999,
-      mixBlendMode: "difference",
-      willChange: "transform",
-    }}>
-      <svg width="58" height="58" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Octagon body */}
-        <polygon
-          points="54,37.9 37.9,54 20.1,54 4,37.9 4,20.1 20.1,4 37.9,4 54,20.1"
-          stroke="white" strokeWidth="1.5"
-        />
-        {/* Inner octagon rim */}
-        <polygon
-          points="50,36.3 36.3,50 21.7,50 8,36.3 8,21.7 21.7,8 36.3,8 50,21.7"
-          stroke="white" strokeWidth="0.5" opacity="0.35"
-        />
-        {/* Screw dots at flat edges */}
-        <circle cx="29" cy="5"  r="1.2" fill="white" opacity="0.6" />
-        <circle cx="29" cy="53" r="1.2" fill="white" opacity="0.6" />
-        <circle cx="5"  cy="29" r="1.2" fill="white" opacity="0.6" />
-        <circle cx="53" cy="29" r="1.2" fill="white" opacity="0.6" />
-        {/* Corner screw dots */}
-        <circle cx="10.5" cy="10.5" r="1" fill="white" opacity="0.4" />
-        <circle cx="47.5" cy="10.5" r="1" fill="white" opacity="0.4" />
-        <circle cx="10.5" cy="47.5" r="1" fill="white" opacity="0.4" />
-        <circle cx="47.5" cy="47.5" r="1" fill="white" opacity="0.4" />
-        {/* Lens bezel outer */}
-        <circle cx="29" cy="29" r="18" stroke="white" strokeWidth="0.5" opacity="0.3" />
-        {/* Lens bezel ring */}
-        <circle cx="29" cy="29" r="16" stroke="white" strokeWidth="1.4" />
-        {/* Lens depth ring */}
-        <circle cx="29" cy="29" r="13.5" stroke="white" strokeWidth="0.5" opacity="0.4" />
-        {/* Lens inner glass */}
-        <circle cx="29" cy="29" r="11" stroke="white" strokeWidth="0.4" opacity="0.2" />
-        {/* Center dot */}
-        <circle cx="29" cy="29" r="1" fill="white" opacity="0.5" />
-        {/* Lens glare arc */}
-        <path d="M20 21 Q23 17 28 19" stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.7" />
-        {/* Secondary glare */}
-        <path d="M22 25 Q24 23 26 24" stroke="white" strokeWidth="0.6" strokeLinecap="round" opacity="0.35" />
-      </svg>
-    </div>
-  )
-}
-
 export default function App() {
   startPointerTracking();
   const textRef = useRef()
@@ -664,7 +586,7 @@ export default function App() {
         cursor: "none",
       }}
     >
-      <Cursor />
+      <Loupe />
       <Canvas
         gl={{ alpha: false, preserveDrawingBuffer: true }}
         camera={{ near: 0.01, far: 110, fov: 80 }}
