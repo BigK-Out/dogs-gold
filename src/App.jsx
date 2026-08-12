@@ -13,6 +13,7 @@ import { pointer, startPointerTracking, PointerProjector } from "./hooks/usePoin
 import Loupe from "./loupe/Loupe";
 import { DogSelector } from "./loupe/useDogSelection";
 import { INITIAL } from "./loupe/selection";
+import CredsCard from "./loupe/CredsCard";
 
 // --- Warp post-processing effect ---
 
@@ -637,6 +638,7 @@ export default function App() {
       >
         <Scene textRef={textRef} selectionRef={selectionRef} />
       </Canvas>
+      <CredsCard selectionRef={selectionRef} />
       <div
         ref={textRef}
         style={{
