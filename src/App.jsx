@@ -14,6 +14,7 @@ import Loupe from "./loupe/Loupe";
 import { DogSelector } from "./shared/useDogSelection";
 import { INITIAL } from "./shared/selection";
 import CredsCard from "./loupe/CredsCard";
+import { DogsPhysics, createDogs } from "./shared/physics";
 
 // --- Warp post-processing effect ---
 
@@ -310,155 +311,6 @@ function DiamondBackground() {
   );
 }
 
-// --- Physics manager ---
-
-const COLLISION_RADIUS = 0.75;
-
-function DogsPhysics({ physicsRef, count, hw, hh }) {
-  useFrame(() => {
-    const dogs = physicsRef.current;
-    if (!dogs.length) return;
-
-    // Move + wall bounce
-    for (let i = 0; i < count; i++) {
-      const d = dogs[i];
-      d.x += d.vx;
-      d.y += d.vy;
-      if (d.x > hw) {
-        d.x = hw;
-        d.vx *= -1;
-        d.flash = 0.6;
-      }
-      if (d.x < -hw) {
-        d.x = -hw;
-        d.vx *= -1;
-        d.flash = 0.6;
-      }
-      if (d.y > hh) {
-        d.y = hh;
-        d.vy *= -1;
-        d.flash = 0.6;
-      }
-      if (d.y < -hh) {
-        d.y = -hh;
-        d.vy *= -1;
-        d.flash = 0.6;
-      }
-
-      // Text barrier — bottom-right box, dogs bounce off edges
-      const bx0 = hw * 0.55
-      const by1 = -hh * 0.55
-      const bx1 = hw
-      const by0 = -hh
-      const r = COLLISION_RADIUS
-      if (d.x + r > bx0 && d.x - r < bx1 && d.y + r > by0 && d.y - r < by1) {
-        // Find smallest penetration axis to resolve
-        const penLeft = (d.x + r) - bx0
-        const penBottom = (d.y + r) - by0
-        const penRight = bx1 - (d.x - r)
-        const penTop = by1 - (d.y - r)
-        const minPen = Math.min(penLeft, penBottom, penRight, penTop)
-        if (minPen === penLeft) {
-          d.x = bx0 - r
-          if (d.vx > 0) d.vx *= -1
-        } else if (minPen === penTop) {
-          d.y = by1 + r
-          if (d.vy < 0) d.vy *= -1
-        } else if (minPen === penRight) {
-          d.x = bx1 + r
-          if (d.vx < 0) d.vx *= -1
-        } else {
-          d.y = by0 - r
-          if (d.vy > 0) d.vy *= -1
-        }
-        d.flash = 0.6
-      }
-
-      // Mouse repulsion — force scales with mouse speed
-      const mw = pointer.world
-      const ms = pointer.speed
-      if (mw) {
-        const mdx = d.x - mw.x
-        const mdy = d.y - mw.y
-        const md2 = mdx * mdx + mdy * mdy
-        const radius = 4.5
-        if (md2 < radius * radius && md2 > 0.001) {
-          const md = Math.sqrt(md2)
-          const falloff = 1 - md / radius
-          const awayX = mdx / md
-          const awayY = mdy / md
-          // Impact scales with mouse speed — dead zone for slow movement
-          const effectiveSpeed = Math.max(ms - 0.15, 0)
-          const impact = Math.min(effectiveSpeed * 0.06, 0.05) * falloff
-          d.vx += awayX * impact
-          d.vy += awayY * impact
-          // Steer only above threshold
-          const speed = Math.sqrt(d.vx * d.vx + d.vy * d.vy)
-          const steer = 0.03 * falloff * Math.min(effectiveSpeed, 1)
-          d.vx = d.vx * (1 - steer) + awayX * speed * steer
-          d.vy = d.vy * (1 - steer) + awayY * speed * steer
-          // Spin boost on impact
-          const spinBoost = impact * 1.5
-          d.spinRate = Math.min((d.spinRate || 0) + spinBoost, 0.04)
-        }
-      }
-
-      // Decelerate back to base speed
-      const spd = Math.sqrt(d.vx * d.vx + d.vy * d.vy)
-      const baseSpeed = d.baseSpeed || 0.008
-      if (spd > baseSpeed) {
-        const drag = 0.995
-        d.vx *= drag
-        d.vy *= drag
-      }
-
-      // Spin: use spinRate if boosted, decay back to base
-      const baseSpin = 0.0008
-      const spin = d.spinRate || baseSpin
-      d.rX += spin * 0.2
-      d.rY += spin
-      d.rZ += spin * 0.2
-      if (spin > baseSpin) d.spinRate *= 0.97
-
-      d.flash = (d.flash || 0) * 0.85;
-    }
-
-    // Collision detection
-    const minDist = COLLISION_RADIUS * 2;
-    const minDist2 = minDist * minDist;
-    for (let i = 0; i < count; i++) {
-      for (let j = i + 1; j < count; j++) {
-        const a = dogs[i],
-          b = dogs[j];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist2 = dx * dx + dy * dy;
-        if (dist2 > minDist2 || dist2 === 0) continue;
-        const dist = Math.sqrt(dist2);
-        const nx = dx / dist,
-          ny = dy / dist;
-        const dvx = a.vx - b.vx,
-          dvy = a.vy - b.vy;
-        const dot = dvx * nx + dvy * ny;
-        if (dot <= 0) continue;
-        a.vx -= dot * nx;
-        a.vy -= dot * ny;
-        b.vx += dot * nx;
-        b.vy += dot * ny;
-        const overlap = (minDist - dist) / 2;
-        a.x -= overlap * nx;
-        a.y -= overlap * ny;
-        b.x += overlap * nx;
-        b.y += overlap * ny;
-        a.flash = 1.0;
-        b.flash = 1.0;
-      }
-    }
-  }, -1);
-
-  return null;
-}
-
 // --- Dog component ---
 
 // Served from /vscodemainrepo/ on Pages, so a root-absolute path would 404 and
@@ -575,21 +427,18 @@ function Scene({ count = 50, textRef, selectionRef }) {
     hh = hh2 / 2;
 
   const physicsRef = useRef(
-    Array.from({ length: count }, () => {
-      const speed = 0.005 + Math.random() * 0.008;
-      const angle = Math.random() * Math.PI * 2;
-      return {
-        x: (Math.random() - 0.5) * hw2 * 0.9,
-        y: (Math.random() - 0.5) * hh2 * 0.9,
-        z: -40,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        baseSpeed: speed,
-        rX: Math.random() * Math.PI,
-        rY: Math.random() * Math.PI,
-        rZ: Math.random() * Math.PI,
-      };
+    createDogs({ count, hw2, hh2, z: -40 }),
+  );
+
+  const physicsConfig = useMemo(
+    () => ({
+      collisionRadius: 0.75,
+      // Keeps dogs off the bottom-right caption.
+      barriers: [{ x0: hw * 0.55, y0: -hh, x1: hw, y1: -hh * 0.55 }],
+      repulsionRadius: 4.5,
+      repulsionGain: 0.06,
     }),
+    [hw, hh],
   );
 
   return (
@@ -601,7 +450,13 @@ function Scene({ count = 50, textRef, selectionRef }) {
         <PointerProjector planeZ={-40} />
         <DiamondBackground />
         <Environment preset="sunset" />
-        <DogsPhysics physicsRef={physicsRef} count={count} hw={hw} hh={hh} />
+        <DogsPhysics
+          physicsRef={physicsRef}
+          count={count}
+          hw={hw}
+          hh={hh}
+          config={physicsConfig}
+        />
         <DogSelector
           physicsRef={physicsRef}
           selectionRef={selectionRef}
