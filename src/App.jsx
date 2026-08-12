@@ -485,9 +485,17 @@ function Dog({ index, physicsRef }) {
 
 function TextColorSampler({ textRef }) {
   const { gl } = useThree()
+  const lastRun = useRef(0)
+  const px = useRef(new Uint8Array(4))
 
   useFrame(() => {
     if (!textRef.current) return
+    // Each readPixels below forces a CPU/GPU sync. At ~6Hz the caption's
+    // existing 0.5s colour transition hides the reduced rate entirely.
+    const now = performance.now()
+    if (now - lastRun.current < 160) return
+    lastRun.current = now
+
     const rect = textRef.current.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
     const ctx = gl.getContext()
@@ -503,10 +511,10 @@ function TextColorSampler({ textRef }) {
     ]
 
     let totalLum = 0
-    const px = new Uint8Array(4)
+    const buf = px.current
     for (const [x, y] of points) {
-      ctx.readPixels(Math.round(x * dpr), Math.round(h - y * dpr), 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, px)
-      totalLum += (px[0] * 0.299 + px[1] * 0.587 + px[2] * 0.114) / 255
+      ctx.readPixels(Math.round(x * dpr), Math.round(h - y * dpr), 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, buf)
+      totalLum += (buf[0] * 0.299 + buf[1] * 0.587 + buf[2] * 0.114) / 255
     }
 
     const lum = totalLum / points.length
