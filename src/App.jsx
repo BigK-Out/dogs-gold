@@ -11,6 +11,8 @@ import { Effect } from "postprocessing";
 import brush from "./burash01.png";
 import { pointer, startPointerTracking, PointerProjector } from "./hooks/usePointer";
 import Loupe from "./loupe/Loupe";
+import { DogSelector } from "./loupe/useDogSelection";
+import { INITIAL } from "./loupe/selection";
 
 // --- Warp post-processing effect ---
 
@@ -450,7 +452,11 @@ function DogsPhysics({ physicsRef, count, hw, hh }) {
 
 // --- Dog component ---
 
-function Dog({ index, physicsRef }) {
+const DOG_SCALE = 0.065;
+const DOG_SCALE_SELECTED = 0.12;
+const DOG_LIFT = 3.5;
+
+function Dog({ index, physicsRef, selectionRef }) {
   const ref = useRef();
   const { nodes, materials } = useGLTF("/upgradeddog-v1-transformed.glb");
 
@@ -464,11 +470,27 @@ function Dog({ index, physicsRef }) {
     return mat;
   }, []);
 
+  const emissiveTarget = useMemo(() => new THREE.Color("#3a2a00"), []);
+  const emissiveOff = useMemo(() => new THREE.Color("#000000"), []);
+
   useFrame(() => {
     const d = physicsRef.current[index];
     if (!d || !ref.current) return;
-    ref.current.position.set(d.x, d.y, d.z);
+
+    const sel = selectionRef.current;
+    const isSelected = sel.index === index && sel.phase !== "idle";
+
+    // One code path for select and release: everything follows the scale lerp,
+    // so deselection is the same animation run backwards.
+    const targetScale = isSelected ? DOG_SCALE_SELECTED : DOG_SCALE;
+    const s = ref.current.scale.x + (targetScale - ref.current.scale.x) * 0.12;
+    ref.current.scale.setScalar(s);
+
+    const grown = (s - DOG_SCALE) / (DOG_SCALE_SELECTED - DOG_SCALE);
+    ref.current.position.set(d.x, d.y, d.z + DOG_LIFT * grown);
     ref.current.rotation.set(d.rX, d.rY, d.rZ);
+
+    material.emissive.lerp(isSelected ? emissiveTarget : emissiveOff, 0.12);
   }, 0);
 
   return (
@@ -476,7 +498,7 @@ function Dog({ index, physicsRef }) {
       ref={ref}
       geometry={nodes.dogmodel.geometry}
       material={material}
-      scale={0.065}
+      scale={DOG_SCALE}
     />
   );
 }
@@ -526,7 +548,7 @@ function TextColorSampler({ textRef }) {
 
 // --- Scene ---
 
-function Scene({ count = 50, textRef }) {
+function Scene({ count = 50, textRef, selectionRef }) {
   const displacementRef = useRef(null);
   const { viewport, camera, gl } = useThree();
   const { width: hw2, height: hh2 } = viewport.getCurrentViewport(
@@ -564,8 +586,18 @@ function Scene({ count = 50, textRef }) {
         <DiamondBackground />
         <Environment preset="sunset" />
         <DogsPhysics physicsRef={physicsRef} count={count} hw={hw} hh={hh} />
+        <DogSelector
+          physicsRef={physicsRef}
+          selectionRef={selectionRef}
+          count={count}
+        />
         {Array.from({ length: count }, (_, i) => (
-          <Dog key={i} index={i} physicsRef={physicsRef} />
+          <Dog
+            key={i}
+            index={i}
+            physicsRef={physicsRef}
+            selectionRef={selectionRef}
+          />
         ))}
         <RippleScene displacementRef={displacementRef} />
         <WarpPass displacementRef={displacementRef} />
@@ -580,6 +612,9 @@ function Scene({ count = 50, textRef }) {
 export default function App() {
   startPointerTracking();
   const textRef = useRef()
+  // Owned by App, not Scene: the credentials card lives outside the <Canvas>
+  // and must read the same object the in-canvas selector writes.
+  const selectionRef = useRef(INITIAL)
 
   return (
     <div
@@ -600,7 +635,7 @@ export default function App() {
         camera={{ near: 0.01, far: 110, fov: 80 }}
         style={{ width: "100%", height: "100%" }}
       >
-        <Scene textRef={textRef} />
+        <Scene textRef={textRef} selectionRef={selectionRef} />
       </Canvas>
       <div
         ref={textRef}
