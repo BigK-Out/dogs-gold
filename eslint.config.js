@@ -29,6 +29,16 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
+
+      // react-three-fiber extends JSX with three.js properties
+      // (<ambientLight intensity>, <mesh geometry>, …). This rule only knows
+      // the DOM's property list, so every r3f element is a false positive.
+      'react/no-unknown-property': 'off',
+
+      // This project uses no PropTypes anywhere and passes refs freely between
+      // components. The rule fires 139 times and finds nothing real.
+      'react/prop-types': 'off',
+
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

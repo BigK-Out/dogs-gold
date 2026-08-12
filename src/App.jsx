@@ -50,6 +50,8 @@ function RippleScene({ displacementRef }) {
   const currentWaveRef = useRef(0);
   const MAX = 50;
 
+  // Deliberately created once. A resize must mutate these in place — see the
+  // effect below — not build a new camera and render target every time.
   const camera = useMemo(() => {
     const h = size.height;
     const a = size.width / size.height;
@@ -63,8 +65,11 @@ function RippleScene({ displacementRef }) {
     );
     cam.position.set(0, 0, 2);
     return cam;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Deliberately created once. A resize must mutate these in place — see the
+  // effect below — not build a new camera and render target every time.
   const rt = useMemo(
     () =>
       new THREE.WebGLRenderTarget(size.width, size.height, {
@@ -72,6 +77,7 @@ function RippleScene({ displacementRef }) {
         magFilter: THREE.LinearFilter,
         format: THREE.RGBAFormat,
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -84,6 +90,7 @@ function RippleScene({ displacementRef }) {
     camera.bottom = h / -2;
     camera.updateProjectionMatrix();
     rt.setSize(size.width, size.height);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size]);
 
   useEffect(() => {
@@ -109,6 +116,7 @@ function RippleScene({ displacementRef }) {
     return () => {
       rt.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useFrame(() => {
@@ -465,6 +473,8 @@ function Dog({ index, physicsRef, selectionRef }) {
   const ref = useRef();
   const { nodes, materials } = useGLTF(MODEL_URL);
 
+  // Each dog picks its gold hue once, at mount. Re-running this on a material
+  // change would reshuffle all fifty colours mid-scene.
   const material = useMemo(() => {
     const mat = materials.skin.clone();
     mat.color.setHSL(
@@ -473,6 +483,7 @@ function Dog({ index, physicsRef, selectionRef }) {
       0.35 + Math.random() * 0.35,
     );
     return mat;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const emissiveTarget = useMemo(() => new THREE.Color("#3a2a00"), []);
@@ -555,7 +566,7 @@ function TextColorSampler({ textRef }) {
 
 function Scene({ count = 50, textRef, selectionRef }) {
   const displacementRef = useRef(null);
-  const { viewport, camera, gl } = useThree();
+  const { viewport, camera } = useThree();
   const { width: hw2, height: hh2 } = viewport.getCurrentViewport(
     camera,
     [0, 0, -40],
