@@ -30,7 +30,9 @@ test("ignores going forward from the last world", () => {
 })
 
 test("ignores input while covering", () => {
-  const covering = { index: 0, pending: 1, phase: COVERING }
+  // pending is 2 but delta +1 would target 1 — so an unguarded reducer would
+  // visibly overwrite pending, and this test would catch it.
+  const covering = { index: 0, pending: 2, phase: COVERING }
   const s = nextNavigation(covering, go(1), COUNT)
   assert.deepEqual(s, covering, "queued swaps would land on the wrong world")
 })
