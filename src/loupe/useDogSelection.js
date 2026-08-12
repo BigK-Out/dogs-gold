@@ -2,8 +2,14 @@ import { useFrame } from "@react-three/fiber"
 import { pointer } from "../hooks/usePointer"
 import { nextSelection } from "./selection"
 
-export const SELECT_RADIUS = 1.2
-export const RELEASE_MARGIN = 0.3
+// Sized against the glass, not against COLLISION_RADIUS. The dog plane sits
+// 40 units from the camera at fov 80, so it spans ~67 world units over the
+// viewport height — roughly 12px per unit at 800px tall. The glass ring is
+// 57px, i.e. ~4.8 units. COLLISION_RADIUS (0.75) is far smaller than a dog
+// actually looks, so deriving the select radius from it put the hot zone at
+// ~14px: the glass would sit squarely on a dog and select nothing.
+export const SELECT_RADIUS = 4.0
+export const RELEASE_MARGIN = 1.0
 export const DWELL_MS = 500
 
 // Selection is a nearest-neighbour scan over the physics array that already
