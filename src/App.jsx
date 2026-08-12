@@ -453,13 +453,17 @@ function DogsPhysics({ physicsRef, count, hw, hh }) {
 
 // --- Dog component ---
 
+// Served from /vscodemainrepo/ on Pages, so a root-absolute path would 404 and
+// leave an empty gold scene with no obvious error. BASE_URL always ends in "/".
+const MODEL_URL = `${import.meta.env.BASE_URL}upgradeddog-v1-transformed.glb`;
+
 const DOG_SCALE = 0.065;
 const DOG_SCALE_SELECTED = 0.12;
 const DOG_LIFT = 3.5;
 
 function Dog({ index, physicsRef, selectionRef }) {
   const ref = useRef();
-  const { nodes, materials } = useGLTF("/upgradeddog-v1-transformed.glb");
+  const { nodes, materials } = useGLTF(MODEL_URL);
 
   const material = useMemo(() => {
     const mat = materials.skin.clone();
