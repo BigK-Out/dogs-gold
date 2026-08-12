@@ -17,7 +17,7 @@
 - `npm run build`, `npm test`, and `./node_modules/.bin/vite` all work directly. The old `node node_modules/vite/bin/vite.js` workaround is **no longer needed** — the execute bits were restored by a later `npm install`.
 - **Desktop only.** No touch support, no `prefers-reduced-motion`, no WebGL fallback. Do not add them.
 - **`preserveDrawingBuffer: true` and `alpha: false` stay on the `<Canvas>` forever.** They are fixed at context creation and cannot be per-world. The luxury caption sampler depends on the first.
-- **The luxury world must look and behave identically when this plan is done.** Every extraction is a verbatim move. Screenshot before, screenshot after.
+- **The luxury *scene* must look and behave identically when this plan is done.** Every extraction is a verbatim move. Screenshot before, screenshot after. The one intended visual addition to the page is the arrow bar, which Task 9 introduces at the bottom centre — everything inside the canvas, plus the loupe, the card, and the caption, must be unchanged.
 - **Preserve the `useFrame` priority chain exactly:** `-2` pointer projector, `-1` physics, `-0.5` selection, `0` dog transforms, `1` effect composer.
 - **Nothing outside `projects/dogs-gold/` is touched**, except one clause in the root `README.md` in Task 11.
 - Every `public/` asset must keep routing through `import.meta.env.BASE_URL`. A root-absolute path 404s under the `/vscodemainrepo/` Pages prefix and yields an empty scene with no error.
@@ -377,7 +377,7 @@ export function nextNavigation(state, action, worldCount) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm test`
-Expected: PASS — 27 tests total (16 existing, 11 here)
+Expected: PASS — 28 tests total (16 existing, 12 here)
 
 - [ ] **Step 5: Commit**
 
@@ -507,7 +507,7 @@ These are the exact values `useDogSelection.js` used as constants, so behaviour 
 - [ ] **Step 4: Verify**
 
 ```bash
-npm test          # expect: 27 pass
+npm test          # expect: 28 pass
 npm run lint      # expect: 0 problems
 npm run build     # expect: success
 ```
@@ -1188,7 +1188,7 @@ and replace `<CredsCard selectionRef={selectionRef} />` with:
 - [ ] **Step 6: Verify**
 
 ```bash
-npm test          # expect: 27 pass
+npm test          # expect: 28 pass
 npm run lint      # expect: 0 problems
 npm run build && npm run dev
 ```
@@ -1962,7 +1962,7 @@ export default function App() {
 npm test && npm run lint && npm run build && npm run dev
 ```
 
-Expected: the piece is still identical to before. Both arrows are visible at the bottom centre and both are dimmed and unclickable, because only one world is registered. The label reads "Luxury". Pressing Left or Right does nothing. Console free of errors.
+Expected: the scene is unchanged — gold river, ripple warp, loupe, card, caption all exactly as before. The one difference is the new arrow bar at the bottom centre: both arrows dimmed and unclickable because only one world is registered, with the label "Luxury" between them. Pressing Left or Right does nothing. Console free of errors.
 
 - [ ] **Step 7: Commit**
 
@@ -2379,7 +2379,7 @@ export const WORLDS = [luxury, middle, stray]
 - [ ] **Step 7: Verify, including the leak gate**
 
 ```bash
-npm test          # expect: 33 pass (27 + 3 middle + 3 stray)
+npm test          # expect: 34 pass (28 + 3 middle + 3 stray)
 npm run lint      # expect: 0 problems
 npm run build && npm run dev
 ```
@@ -2521,7 +2521,7 @@ Open `http://localhost:8099/vscodemainrepo/`. Expected: all three worlds load an
 
 ```bash
 cd projects/dogs-gold
-npm test          # expect: 33 pass, 0 fail
+npm test          # expect: 34 pass, 0 fail
 npm run lint      # expect: 0 problems
 npm run build     # expect: success
 wc -l src/App.jsx # expect: roughly 130 lines, down from 674
