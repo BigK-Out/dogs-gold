@@ -1,4 +1,3 @@
-
 // Arrow input during a transition is dropped rather than queued. Queuing it
 // lets a held arrow key land the user on a world they never aimed at, with the
 // curtain half faded.
