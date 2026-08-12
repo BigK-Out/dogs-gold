@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { pointer } from "../hooks/usePointer"
+import { pointer } from "../shared/usePointer"
 import lensUrl from "./loupe.png"
 
 export const LOUPE_SIZE_PX = 260

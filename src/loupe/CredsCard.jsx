@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react"
-import { pointer } from "../hooks/usePointer"
+import { pointer } from "../shared/usePointer"
 import { credsFor } from "./creds"
 import { GLASS_RADIUS_PX } from "./Loupe"
-import { LOCKED } from "./selection"
+import { LOCKED } from "../shared/selection"
 
 const CARD_WIDTH = 250
 const GAP = 28

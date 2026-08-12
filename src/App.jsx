@@ -9,10 +9,10 @@ import {
 } from "@react-three/postprocessing";
 import { Effect } from "postprocessing";
 import brush from "./burash01.png";
-import { pointer, startPointerTracking, PointerProjector } from "./hooks/usePointer";
+import { pointer, startPointerTracking, PointerProjector } from "./shared/usePointer";
 import Loupe from "./loupe/Loupe";
-import { DogSelector } from "./loupe/useDogSelection";
-import { INITIAL } from "./loupe/selection";
+import { DogSelector } from "./shared/useDogSelection";
+import { INITIAL } from "./shared/selection";
 import CredsCard from "./loupe/CredsCard";
 
 // --- Warp post-processing effect ---
@@ -606,6 +606,7 @@ function Scene({ count = 50, textRef, selectionRef }) {
           physicsRef={physicsRef}
           selectionRef={selectionRef}
           count={count}
+          selection={{ radius: 4.0, releaseMargin: 1.0, dwellMs: 500 }}
         />
         {Array.from({ length: count }, (_, i) => (
           <Dog
