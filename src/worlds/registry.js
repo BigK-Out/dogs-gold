@@ -1,4 +1,6 @@
 import luxury from "./luxury"
+import middle from "./middle"
+import stray from "./stray"
 
-// Array order is arrow order. Worlds are added in Task 10.
-export const WORLDS = [luxury]
+// Array order is arrow order: a descent from luxury to stray.
+export const WORLDS = [luxury, middle, stray]
