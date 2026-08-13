@@ -1,15 +1,7 @@
-import * as THREE from "three";
-import { Suspense, useRef, useEffect, useMemo } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Suspense, useRef, useMemo } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
-import {
-  EffectComposer,
-  DepthOfField,
-  wrapEffect,
-} from "@react-three/postprocessing";
-import { Effect } from "postprocessing";
-import brush from "./burash01.png";
-import { pointer, startPointerTracking, PointerProjector } from "./shared/usePointer";
+import { startPointerTracking, PointerProjector } from "./shared/usePointer";
 import Instrument from "./shared/Instrument";
 import Card from "./shared/Card";
 import { DogSelector } from "./shared/useDogSelection";
@@ -19,6 +11,10 @@ import { DogsPhysics, createDogs } from "./shared/physics";
 import Dog from "./shared/Dog";
 import { makeGoldMaterial } from "./worlds/luxury/material";
 import loupePng from "./worlds/luxury/loupe.png";
+import DiamondBackground from "./worlds/luxury/background";
+import RippleWarp from "./worlds/luxury/RippleWarp";
+import TextColorSampler from "./worlds/luxury/TextColorSampler";
+import Caption from "./worlds/luxury/Caption";
 
 // Moves into world config in Task 8.
 const LUXURY_INSTRUMENT = {
@@ -29,354 +25,15 @@ const LUXURY_INSTRUMENT = {
   radius: 0.220,
 };
 
-// --- Warp post-processing effect ---
-
-const warpFrag = `
-uniform sampler2D uDisplacement;
-
-void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec4 displacement = texture2D(uDisplacement, uv);
-    float magnitude = displacement.r;
-    float theta = magnitude * 2.0 * 3.14159265;
-    vec2 dir = vec2(sin(theta), cos(theta));
-    vec2 warpedUv = uv + dir * magnitude * 0.035;
-    outputColor = texture2D(inputBuffer, warpedUv);
-}
-`;
-
-class WarpEffectImpl extends Effect {
-  constructor() {
-    super("WarpEffect", warpFrag, {
-      uniforms: new Map([["uDisplacement", new THREE.Uniform(null)]]),
-    });
-  }
-}
-
-const WarpEffect = wrapEffect(WarpEffectImpl);
-
-// --- Brush stroke renderer (inside R3F canvas) ---
-
-function RippleScene({ displacementRef }) {
-  const { gl, size } = useThree();
-  const brushScene = useMemo(() => new THREE.Scene(), []);
-  const meshesRef = useRef([]);
-  const prevMouseRef = useRef(new THREE.Vector2(0, 0));
-  const currentWaveRef = useRef(0);
-  const MAX = 50;
-
-  // Deliberately created once. A resize must mutate these in place — see the
-  // effect below — not build a new camera and render target every time.
-  const camera = useMemo(() => {
-    const h = size.height;
-    const a = size.width / size.height;
-    const cam = new THREE.OrthographicCamera(
-      (h * a) / -2,
-      (h * a) / 2,
-      h / 2,
-      h / -2,
-      1,
-      1000,
-    );
-    cam.position.set(0, 0, 2);
-    return cam;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Deliberately created once. A resize must mutate these in place — see the
-  // effect below — not build a new camera and render target every time.
-  const rt = useMemo(
-    () =>
-      new THREE.WebGLRenderTarget(size.width, size.height, {
-        minFilter: THREE.LinearFilter,
-        magFilter: THREE.LinearFilter,
-        format: THREE.RGBAFormat,
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  useEffect(() => {
-    const h = size.height;
-    const a = size.width / size.height;
-    camera.left = (h * a) / -2;
-    camera.right = (h * a) / 2;
-    camera.top = h / 2;
-    camera.bottom = h / -2;
-    camera.updateProjectionMatrix();
-    rt.setSize(size.width, size.height);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size]);
-
-  useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    loader.load(brush, (tex) => {
-      const geo = new THREE.PlaneGeometry(140, 140);
-      for (let i = 0; i < MAX; i++) {
-        const mat = new THREE.MeshBasicMaterial({
-          map: tex,
-          transparent: true,
-          blending: THREE.AdditiveBlending,
-          depthTest: false,
-          depthWrite: false,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.visible = false;
-        mesh.rotation.z = Math.random() * Math.PI * 2;
-        brushScene.add(mesh);
-        meshesRef.current.push(mesh);
-      }
-    });
-
-    return () => {
-      rt.dispose();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useFrame(() => {
-    // Raw, not smoothed: the brush trail was event-driven and instantaneous
-    // before this refactor, and the lerped value would make it lag and keep
-    // spawning strokes after the pointer stops.
-    const mouse = {
-      x: pointer.screen.x - size.width / 2,
-      y: size.height / 2 - pointer.screen.y,
-    };
-    const prev = prevMouseRef.current;
-
-    if (Math.abs(mouse.x - prev.x) > 4 || Math.abs(mouse.y - prev.y) > 4) {
-      const mesh = meshesRef.current[currentWaveRef.current];
-      if (mesh) {
-        mesh.visible = true;
-        mesh.position.x = mouse.x;
-        mesh.position.y = mouse.y;
-        mesh.rotation.z = Math.random() * Math.PI * 2;
-        mesh.scale.x = mesh.scale.y = 1;
-        mesh.material.opacity = 1;
-        currentWaveRef.current = (currentWaveRef.current + 1) % MAX;
-      }
-      prev.x = mouse.x;
-      prev.y = mouse.y;
-    }
-
-    meshesRef.current.forEach((mesh) => {
-      if (mesh.visible) {
-        mesh.rotation.z += 0.02;
-        mesh.material.opacity *= 0.9;
-        mesh.scale.x = 0.982 * mesh.scale.x + 0.08;
-        mesh.scale.y = mesh.scale.x;
-        if (mesh.material.opacity < 0.02) mesh.visible = false;
-      }
-    });
-
-    gl.setRenderTarget(rt);
-    gl.clear();
-    gl.render(brushScene, camera);
-    gl.setRenderTarget(null);
-
-    displacementRef.current = rt.texture;
-  });
-
-  return null;
-}
-
-// --- Warp pass (reads displacement ref, updates uniform) ---
-
-function WarpPass({ displacementRef }) {
-  const effectRef = useRef();
-
-  useFrame(() => {
-    if (effectRef.current && displacementRef.current) {
-      effectRef.current.uniforms.get("uDisplacement").value =
-        displacementRef.current;
-    }
-  });
-
-  return (
-    <EffectComposer>
-      <DepthOfField
-        target={[0, 0, 40]}
-        focalLength={0.5}
-        bokehScale={8}
-        height={700}
-      />
-      <WarpEffect ref={effectRef} />
-    </EffectComposer>
-  );
-}
-
-// --- Diamond background ---
-
-const riverVert = `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`;
-
-const riverFrag = `
-uniform float uTime;
-varying vec2 vUv;
-
-float hash(vec2 p) {
-  p = fract(p * vec2(127.1, 311.7));
-  p += dot(p, p + 45.32);
-  return fract(p.x * p.y);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
-    f.y
-  );
-}
-
-float fbm(vec2 p) {
-  float v = 0.0, a = 0.5;
-  for (int i = 0; i < 5; i++) {
-    v += a * noise(p);
-    p = p * 2.0 + vec2(3.1 + float(i) * 0.7, 4.7 - float(i) * 0.5);
-    a *= 0.5;
-  }
-  return v;
-}
-
-vec3 goldPalette(float t) {
-  // 5 gold tones that blend smoothly — blue kept near zero to avoid blend artifacts
-  vec3 c0 = vec3(0.04, 0.02, 0.00); // darkest bronze
-  vec3 c1 = vec3(0.18, 0.10, 0.00); // deep amber
-  vec3 c2 = vec3(0.42, 0.28, 0.01); // warm gold
-  vec3 c3 = vec3(0.70, 0.54, 0.03); // bright gold
-  vec3 c4 = vec3(0.85, 0.72, 0.05); // white gold highlight
-
-  float s = clamp(t, 0.0, 1.0) * 4.0;
-  int i = int(s);
-  float f = fract(s);
-
-  if (i == 0) return mix(c0, c1, f);
-  if (i == 1) return mix(c1, c2, f);
-  if (i == 2) return mix(c2, c3, f);
-  return mix(c3, c4, f);
-}
-
-void main() {
-  float t = uTime * 0.02;
-  vec2 uv = vUv;
-
-  // Domain warp pass 1
-  vec2 q = vec2(
-    fbm(uv * 2.0 + vec2(0.0, 0.0) + t),
-    fbm(uv * 2.0 + vec2(5.2, 1.3) + t)
-  );
-
-  // Domain warp pass 2
-  vec2 r = vec2(
-    fbm(uv * 2.0 + 4.0 * q + vec2(1.7, 9.2) + 0.4 * t),
-    fbm(uv * 2.0 + 4.0 * q + vec2(8.3, 2.8) + 0.4 * t)
-  );
-
-  // River mask
-  float rivers = sin(r.x * 28.0 + t * 0.4) * 0.5 + 0.5;
-  rivers = smoothstep(0.49, 0.51, rivers);
-
-  // Layered gold: coarse variation between rivers + fine variation within
-  float coarse = sin(r.x * 5.0 + r.y * 3.0 + t * 0.2) * 0.5 + 0.5;
-  float fine   = sin(r.x * 22.0 + r.y * 18.0 + t * 0.5) * 0.5 + 0.5;
-  float shimmer = sin(r.x * 60.0 - r.y * 40.0 + t * 1.2) * 0.5 + 0.5;
-
-  // Blend layers: coarse sets the general tone, fine adds sub-bands, shimmer adds highlights
-  float f = coarse * 0.5 + fine * 0.3 + shimmer * 0.2;
-  vec3 col = goldPalette(f);
-
-  // Very dark background between rivers
-  vec3 bg = vec3(0.01, 0.008, 0.002);
-  col = mix(bg, col, rivers);
-
-  gl_FragColor = vec4(col, 1.0);
-}
-`;
-
-function DiamondBackground() {
-  const { viewport } = useThree();
-  const mat = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        vertexShader: riverVert,
-        fragmentShader: riverFrag,
-        uniforms: { uTime: { value: 0 } },
-        depthWrite: false,
-      }),
-    [],
-  );
-
-  useFrame((state) => {
-    mat.uniforms.uTime.value = state.clock.elapsedTime;
-  });
-
-  return (
-    <mesh renderOrder={-1} material={mat}>
-      <planeGeometry args={[viewport.width * 4, viewport.height * 4]} />
-    </mesh>
-  );
-}
-
 // --- Dog component ---
 
 // Served from /vscodemainrepo/ on Pages, so a root-absolute path would 404 and
 // leave an empty gold scene with no obvious error. BASE_URL always ends in "/".
 const MODEL_URL = `${import.meta.env.BASE_URL}upgradeddog-v1-transformed.glb`;
 
-// --- Text color sampler ---
-
-function TextColorSampler({ textRef }) {
-  const { gl } = useThree()
-  const lastRun = useRef(0)
-  const px = useRef(new Uint8Array(4))
-
-  useFrame(() => {
-    if (!textRef.current) return
-    // Each readPixels below forces a CPU/GPU sync. At ~6Hz the caption's
-    // existing 0.5s colour transition hides the reduced rate entirely.
-    const now = performance.now()
-    if (now - lastRun.current < 160) return
-    lastRun.current = now
-
-    const rect = textRef.current.getBoundingClientRect()
-    const dpr = window.devicePixelRatio || 1
-    const ctx = gl.getContext()
-    const h = gl.domElement.height
-
-    // Sample a grid of 5 points across the text area
-    const points = [
-      [rect.left + rect.width * 0.5, rect.top + rect.height * 0.5],
-      [rect.left + rect.width * 0.2, rect.top + rect.height * 0.3],
-      [rect.left + rect.width * 0.8, rect.top + rect.height * 0.3],
-      [rect.left + rect.width * 0.2, rect.top + rect.height * 0.7],
-      [rect.left + rect.width * 0.8, rect.top + rect.height * 0.7],
-    ]
-
-    let totalLum = 0
-    const buf = px.current
-    for (const [x, y] of points) {
-      ctx.readPixels(Math.round(x * dpr), Math.round(h - y * dpr), 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, buf)
-      totalLum += (buf[0] * 0.299 + buf[1] * 0.587 + buf[2] * 0.114) / 255
-    }
-
-    const lum = totalLum / points.length
-    textRef.current.style.color = lum > 0.25 ? "#000000" : "#ffe000"
-  })
-
-  return null
-}
-
 // --- Scene ---
 
-function Scene({ count = 50, textRef, selectionRef }) {
-  const displacementRef = useRef(null);
+function Scene({ count = 50, selectionRef }) {
   const { viewport, camera } = useThree();
   const { width: hw2, height: hh2 } = viewport.getCurrentViewport(
     camera,
@@ -435,9 +92,8 @@ function Scene({ count = 50, textRef, selectionRef }) {
             lift={3.5}
           />
         ))}
-        <RippleScene displacementRef={displacementRef} />
-        <WarpPass displacementRef={displacementRef} />
-        <TextColorSampler textRef={textRef} />
+        <RippleWarp />
+        <TextColorSampler />
       </Suspense>
     </>
   );
@@ -447,7 +103,6 @@ function Scene({ count = 50, textRef, selectionRef }) {
 
 export default function App() {
   startPointerTracking();
-  const textRef = useRef()
   // Owned by App, not Scene: the credentials card lives outside the <Canvas>
   // and must read the same object the in-canvas selector writes.
   const selectionRef = useRef(INITIAL)
@@ -471,7 +126,7 @@ export default function App() {
         camera={{ near: 0.01, far: 110, fov: 80 }}
         style={{ width: "100%", height: "100%" }}
       >
-        <Scene textRef={textRef} selectionRef={selectionRef} />
+        <Scene selectionRef={selectionRef} />
       </Canvas>
       <Card
         selectionRef={selectionRef}
@@ -479,31 +134,7 @@ export default function App() {
         Content={Certificate}
         style={certificateStyle}
       />
-      <div
-        ref={textRef}
-        style={{
-          position: "absolute",
-          bottom: "2rem",
-          right: "2.5rem",
-          color: "#ffe000",
-          fontFamily: "'Josefin Sans', sans-serif",
-          fontSize: "0.78rem",
-          fontWeight: "400",
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          transition: "color 0.5s ease",
-          pointerEvents: "none",
-          userSelect: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          lineHeight: "1.8",
-        }}
-      >
-        <span>made with</span>
-        <span>gold, puppies</span>
-        <span>and luxury</span>
-      </div>
+      <Caption />
     </div>
   );
 }
