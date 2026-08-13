@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Suspense, useRef, useEffect, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Environment } from "@react-three/drei";
+import { Environment } from "@react-three/drei";
 import {
   EffectComposer,
   DepthOfField,
@@ -15,6 +15,8 @@ import { DogSelector } from "./shared/useDogSelection";
 import { INITIAL } from "./shared/selection";
 import CredsCard from "./loupe/CredsCard";
 import { DogsPhysics, createDogs } from "./shared/physics";
+import Dog from "./shared/Dog";
+import { makeGoldMaterial } from "./worlds/luxury/material";
 
 // --- Warp post-processing effect ---
 
@@ -317,60 +319,6 @@ function DiamondBackground() {
 // leave an empty gold scene with no obvious error. BASE_URL always ends in "/".
 const MODEL_URL = `${import.meta.env.BASE_URL}upgradeddog-v1-transformed.glb`;
 
-const DOG_SCALE = 0.065;
-const DOG_SCALE_SELECTED = 0.12;
-const DOG_LIFT = 3.5;
-
-function Dog({ index, physicsRef, selectionRef }) {
-  const ref = useRef();
-  const { nodes, materials } = useGLTF(MODEL_URL);
-
-  // Each dog picks its gold hue once, at mount. Re-running this on a material
-  // change would reshuffle all fifty colours mid-scene.
-  const material = useMemo(() => {
-    const mat = materials.skin.clone();
-    mat.color.setHSL(
-      0.11 + Math.random() * 0.06,
-      0.7 + Math.random() * 0.3,
-      0.35 + Math.random() * 0.35,
-    );
-    return mat;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const emissiveTarget = useMemo(() => new THREE.Color("#3a2a00"), []);
-  const emissiveOff = useMemo(() => new THREE.Color("#000000"), []);
-
-  useFrame(() => {
-    const d = physicsRef.current[index];
-    if (!d || !ref.current) return;
-
-    const sel = selectionRef.current;
-    const isSelected = sel.index === index && sel.phase !== "idle";
-
-    // One code path for select and release: everything follows the scale lerp,
-    // so deselection is the same animation run backwards.
-    const targetScale = isSelected ? DOG_SCALE_SELECTED : DOG_SCALE;
-    const s = ref.current.scale.x + (targetScale - ref.current.scale.x) * 0.12;
-    ref.current.scale.setScalar(s);
-
-    const grown = (s - DOG_SCALE) / (DOG_SCALE_SELECTED - DOG_SCALE);
-    ref.current.position.set(d.x, d.y, d.z + DOG_LIFT * grown);
-    ref.current.rotation.set(d.rX, d.rY, d.rZ);
-
-    material.emissive.lerp(isSelected ? emissiveTarget : emissiveOff, 0.12);
-  }, 0);
-
-  return (
-    <mesh
-      ref={ref}
-      geometry={nodes.dogmodel.geometry}
-      material={material}
-      scale={DOG_SCALE}
-    />
-  );
-}
-
 // --- Text color sampler ---
 
 function TextColorSampler({ textRef }) {
@@ -469,6 +417,11 @@ function Scene({ count = 50, textRef, selectionRef }) {
             index={i}
             physicsRef={physicsRef}
             selectionRef={selectionRef}
+            modelUrl={MODEL_URL}
+            makeMaterial={makeGoldMaterial}
+            scale={0.065}
+            selectedScale={0.12}
+            lift={3.5}
           />
         ))}
         <RippleScene displacementRef={displacementRef} />
