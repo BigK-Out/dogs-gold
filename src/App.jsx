@@ -10,13 +10,24 @@ import {
 import { Effect } from "postprocessing";
 import brush from "./burash01.png";
 import { pointer, startPointerTracking, PointerProjector } from "./shared/usePointer";
-import Loupe from "./loupe/Loupe";
+import Instrument from "./shared/Instrument";
+import Card from "./shared/Card";
 import { DogSelector } from "./shared/useDogSelection";
 import { INITIAL } from "./shared/selection";
-import CredsCard from "./loupe/CredsCard";
+import Certificate, { certificateStyle } from "./worlds/luxury/Certificate";
 import { DogsPhysics, createDogs } from "./shared/physics";
 import Dog from "./shared/Dog";
 import { makeGoldMaterial } from "./worlds/luxury/material";
+import loupePng from "./worlds/luxury/loupe.png";
+
+// Moves into world config in Task 8.
+const LUXURY_INSTRUMENT = {
+  src: loupePng,
+  size: 260,
+  cx: 0.359,
+  cy: 0.342,
+  radius: 0.220,
+};
 
 // --- Warp post-processing effect ---
 
@@ -454,7 +465,7 @@ export default function App() {
         cursor: "none",
       }}
     >
-      <Loupe />
+      <Instrument instrument={LUXURY_INSTRUMENT} />
       <Canvas
         gl={{ alpha: false, preserveDrawingBuffer: true }}
         camera={{ near: 0.01, far: 110, fov: 80 }}
@@ -462,7 +473,12 @@ export default function App() {
       >
         <Scene textRef={textRef} selectionRef={selectionRef} />
       </Canvas>
-      <CredsCard selectionRef={selectionRef} />
+      <Card
+        selectionRef={selectionRef}
+        instrument={LUXURY_INSTRUMENT}
+        Content={Certificate}
+        style={certificateStyle}
+      />
       <div
         ref={textRef}
         style={{
