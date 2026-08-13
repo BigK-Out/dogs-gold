@@ -112,7 +112,7 @@ export default function App() {
 
       {world.Card && (
         <Card
-          key={world.id}
+          key={`card-${world.id}`}
           selectionRef={selectionRef}
           instrument={world.instrument}
           Content={world.Card}
@@ -120,7 +120,7 @@ export default function App() {
         />
       )}
 
-      {Overlay && <Overlay key={world.id} />}
+      {Overlay && <Overlay key={`overlay-${world.id}`} />}
 
       <Arrows
         index={nav.index}
