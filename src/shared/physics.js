@@ -1,12 +1,14 @@
 // src/shared/physics.js
 import { useFrame } from "@react-three/fiber"
 import { pointer } from "./usePointer"
+import { calmDamping, DEFAULT_CALM } from "./repulsion"
 
 export const DEFAULT_PHYSICS = {
   collisionRadius: 0.75,
   barriers: [],
   repulsionRadius: 4.5,
   repulsionGain: 0.06,
+  ...DEFAULT_CALM,
 }
 
 export function createDogs({
@@ -111,12 +113,16 @@ export function DogsPhysics({ physicsRef, count, hw, hh, config = DEFAULT_PHYSIC
           const awayY = mdy / md
           // Impact scales with mouse speed — dead zone for slow movement
           const effectiveSpeed = Math.max(ms - 0.15, 0)
-          const impact = Math.min(effectiveSpeed * config.repulsionGain, 0.05) * falloff
+          // Damps both the impulse and the steer, so a slow pointer close in
+          // neither knocks a dog away nor bends its heading.
+          const calm = calmDamping(md, ms, config)
+          const impact =
+            Math.min(effectiveSpeed * config.repulsionGain, 0.05) * falloff * calm
           d.vx += awayX * impact
           d.vy += awayY * impact
           // Steer only above threshold
           const speed = Math.sqrt(d.vx * d.vx + d.vy * d.vy)
-          const steer = 0.03 * falloff * Math.min(effectiveSpeed, 1)
+          const steer = 0.03 * falloff * Math.min(effectiveSpeed, 1) * calm
           d.vx = d.vx * (1 - steer) + awayX * speed * steer
           d.vy = d.vy * (1 - steer) + awayY * speed * steer
           // Spin boost on impact

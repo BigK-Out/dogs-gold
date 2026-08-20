@@ -3,6 +3,7 @@ import { useThree } from "@react-three/fiber"
 import { Environment } from "@react-three/drei"
 import { PointerProjector } from "../../shared/usePointer"
 import { DogsPhysics, createDogs } from "../../shared/physics"
+import { DEFAULT_CALM } from "../../shared/repulsion"
 import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
 import DiamondBackground from "./background"
@@ -28,6 +29,11 @@ export default function Scene({ selectionRef, config }) {
       barriers: [{ x0: hw * 0.55, y0: -hh, x1: hw, y1: -hh * 0.55 }],
       repulsionRadius: 4.5,
       repulsionGain: 0.06,
+      // A slow pointer inside the loupe's glass is inspecting, not shooing, so
+      // a dog stays catchable for the whole 500ms dwell instead of being shoved
+      // out of the 4.0 selection radius before it can lock. Spread rather than
+      // restated: this world tunes the repulsion above, not the damping.
+      ...DEFAULT_CALM,
     }),
     [hw, hh],
   )
