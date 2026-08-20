@@ -3,7 +3,7 @@ import { useMemo, useRef, useEffect } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
 import { EffectComposer, DepthOfField, wrapEffect } from "@react-three/postprocessing"
 import { Effect } from "postprocessing"
-import { pointer } from "../../shared/usePointer"
+import { pointer } from "./usePointer"
 import brush from "./burash01.png"
 
 const warpFrag = `
@@ -81,9 +81,23 @@ function RippleScene({ displacementRef }) {
   }, [size]);
 
   useEffect(() => {
+    // Every world mounts this now, so the subtree is built and torn down on
+    // each switch. Nothing here is reclaimed automatically: r3f disposes what
+    // it renders as JSX, and these fifty meshes are added to a plain
+    // THREE.Scene by hand.
+    let cancelled = false;
+    let texture = null;
+    const geometry = new THREE.PlaneGeometry(140, 140);
     const loader = new THREE.TextureLoader();
+
     loader.load(brush, (tex) => {
-      const geo = new THREE.PlaneGeometry(140, 140);
+      // Switching worlds before the PNG arrives would otherwise build fifty
+      // materials into a scene whose cleanup has already run.
+      if (cancelled) {
+        tex.dispose();
+        return;
+      }
+      texture = tex;
       for (let i = 0; i < MAX; i++) {
         const mat = new THREE.MeshBasicMaterial({
           map: tex,
@@ -92,7 +106,7 @@ function RippleScene({ displacementRef }) {
           depthTest: false,
           depthWrite: false,
         });
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(geometry, mat);
         mesh.visible = false;
         mesh.rotation.z = Math.random() * Math.PI * 2;
         brushScene.add(mesh);
@@ -101,6 +115,15 @@ function RippleScene({ displacementRef }) {
     });
 
     return () => {
+      cancelled = true;
+      for (const mesh of meshesRef.current) {
+        brushScene.remove(mesh);
+        mesh.material.dispose();
+      }
+      meshesRef.current = [];
+      // One geometry shared by all fifty meshes, so disposed once.
+      geometry.dispose();
+      texture?.dispose();
       rt.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,7 +175,7 @@ function RippleScene({ displacementRef }) {
   return null;
 }
 
-function WarpPass({ displacementRef }) {
+function WarpPass({ displacementRef, depthOfField }) {
   const effectRef = useRef();
 
   useFrame(() => {
@@ -162,25 +185,27 @@ function WarpPass({ displacementRef }) {
     }
   });
 
-  return (
-    <EffectComposer>
-      <DepthOfField
-        target={[0, 0, 40]}
-        focalLength={0.5}
-        bokehScale={8}
-        height={700}
-      />
-      <WarpEffect ref={effectRef} />
-    </EffectComposer>
-  );
+  // Built as an array rather than with a conditional child: EffectComposer
+  // walks its children to assemble the pass chain, and a `false` or `null`
+  // among them is not a pass.
+  const passes = [];
+  if (depthOfField) {
+    passes.push(<DepthOfField key="dof" {...depthOfField} />);
+  }
+  passes.push(<WarpEffect key="warp" ref={effectRef} />);
+
+  return <EffectComposer>{passes}</EffectComposer>;
 }
 
-export default function RippleWarp() {
+// The brush-stroke trail and the warp pass that reads it. `depthOfField` is
+// optional and off by default: the blur is a luxury look rather than part of
+// the ripple, and the other worlds want the trail without it.
+export default function RippleWarp({ depthOfField }) {
   const displacementRef = useRef(null)
   return (
     <>
       <RippleScene displacementRef={displacementRef} />
-      <WarpPass displacementRef={displacementRef} />
+      <WarpPass displacementRef={displacementRef} depthOfField={depthOfField} />
     </>
   )
 }
