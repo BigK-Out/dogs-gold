@@ -6,7 +6,6 @@ import { DogsPhysics, createDogs } from "../../shared/physics"
 import { DEFAULT_CALM } from "../../shared/repulsion"
 import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
-import RippleWarp from "../../shared/RippleWarp"
 import DiamondBackground from "./background"
 import TextColorSampler from "./TextColorSampler"
 import { makeGoldMaterial } from "./material"
@@ -72,16 +71,6 @@ export default function Scene({ selectionRef, config }) {
           lift={3.5}
         />
       ))}
-      {/* The blur is luxury's alone — the other worlds take the trail without
-          it. These are the values the effect carried when it lived here. */}
-      <RippleWarp
-        depthOfField={{
-          target: [0, 0, 40],
-          focalLength: 0.5,
-          bokehScale: 8,
-          height: 700,
-        }}
-      />
       <TextColorSampler />
     </>
   )

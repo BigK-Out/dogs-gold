@@ -20,6 +20,17 @@ export default {
 
   modelUrl: MODEL_URL,
 
+  // The shell's ripple pass reads this. Luxury is the only world that blurs;
+  // omitting the key leaves the trail without the blur. Defined out here rather
+  // than inline in the JSX so its identity is stable across renders — the pass
+  // chain is rebuilt whenever it changes.
+  depthOfField: {
+    target: [0, 0, 40],
+    focalLength: 0.5,
+    bokehScale: 8,
+    height: 700,
+  },
+
   // Measured from the asset's alpha channel and confirmed at the machine.
   // Do not adjust: the glass is not at the image centre, because the handle
   // occupies the lower right.

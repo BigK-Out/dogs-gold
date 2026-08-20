@@ -187,19 +187,32 @@ function WarpPass({ displacementRef, depthOfField }) {
 
   // Built as an array rather than with a conditional child: EffectComposer
   // walks its children to assemble the pass chain, and a `false` or `null`
-  // among them is not a pass.
-  const passes = [];
-  if (depthOfField) {
-    passes.push(<DepthOfField key="dof" {...depthOfField} />);
-  }
-  passes.push(<WarpEffect key="warp" ref={effectRef} />);
+  // among them is not a pass. Memoised so the chain is only rebuilt when a
+  // world actually changes the blur — `children` is a dependency of the effect
+  // that assembles the passes, and each rebuild abandons an EffectPass.
+  const passes = useMemo(() => {
+    const list = [];
+    if (depthOfField) list.push(<DepthOfField key="dof" {...depthOfField} />);
+    list.push(<WarpEffect key="warp" ref={effectRef} />);
+    return list;
+  }, [depthOfField]);
 
   return <EffectComposer>{passes}</EffectComposer>;
 }
 
-// The brush-stroke trail and the warp pass that reads it. `depthOfField` is
-// optional and off by default: the blur is a luxury look rather than part of
-// the ripple, and the other worlds want the trail without it.
+// Mounted once by the shell, outside the keyed world subtree, and never
+// unmounted. This is not a stylistic choice: @react-three/postprocessing builds
+// its EffectComposer in a useMemo and never calls composer.dispose(), so every
+// unmount abandons the composer's render targets. Mounting one per world leaked
+// framebuffers, renderbuffers and textures on every switch.
+//
+// The trail itself is world-independent — it reads only the pointer and the
+// canvas size — so keeping it up costs nothing and saves rebuilding fifty
+// meshes and a render target per switch.
+//
+// `depthOfField` is optional per world: the blur is a luxury look rather than
+// part of the ripple. It is safe to vary because the DepthOfField wrapper does
+// dispose its effect, both on unmount and on a prop change.
 export default function RippleWarp({ depthOfField }) {
   const displacementRef = useRef(null)
   return (

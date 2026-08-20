@@ -4,6 +4,7 @@ import { startPointerTracking } from "./shared/usePointer";
 import { INITIAL as SELECTION_INITIAL } from "./shared/selection";
 import Instrument from "./shared/Instrument";
 import Card from "./shared/Card";
+import RippleWarp from "./shared/RippleWarp";
 import { WORLDS } from "./worlds/registry";
 import {
   nextNavigation,
@@ -108,6 +109,10 @@ export default function App() {
           <world.Scene selectionRef={selectionRef} config={world} />
           <WorldReady onReady={onReady} />
         </Suspense>
+        {/* Deliberately outside the keyed subtree, so it survives every world
+            switch. The effect composer it owns cannot be unmounted without
+            leaking its render targets — see shared/RippleWarp.jsx. */}
+        <RippleWarp depthOfField={world.depthOfField} />
       </Canvas>
 
       {world.Card && (

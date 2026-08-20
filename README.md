@@ -31,12 +31,26 @@ only the keys below.
 | `instrument` | yes | `{ src, size, cx, cy, radius }` — art plus measured ratios |
 | `selection` | yes | `{ radius, releaseMargin, dwellMs }` |
 | `Card`, `cardStyle` | no | the reveal panel's content and container style |
+| `depthOfField` | no | blur settings for the shared ripple pass; omit for none |
 | `Instrument` | no | replaces the shared pointer-following positioner |
 | `Overlay` | no | extra DOM inside the shell wrapper |
 
 `src/shared/` holds what every world reuses: the pointer singleton, the physics
-loop, the dog mesh, the selection state machine, the instrument positioner, and
-the card container. `src/shell/` holds the navigation reducer and the transition.
+loop, the dog mesh, the selection state machine, the instrument positioner, the
+card container, and the ripple pass. `src/shell/` holds the navigation reducer
+and the transition.
+
+## The ripple pass is mounted once
+
+`shared/RippleWarp.jsx` is rendered by the shell, outside the keyed world
+subtree, and is never unmounted. This is load-bearing:
+`@react-three/postprocessing` builds its `EffectComposer` in a `useMemo` and
+never calls `composer.dispose()`, so every unmount abandons that composer's
+render targets. One composer per world leaked framebuffers, renderbuffers and
+textures on every switch.
+
+**Do not move it into a world's `Scene`.** A world varies the effect through
+config — `depthOfField` today — rather than by mounting its own composer.
 
 ## Adding a world
 

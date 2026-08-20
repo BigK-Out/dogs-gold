@@ -6,7 +6,6 @@ import { PointerProjector } from "../../shared/usePointer"
 import { DogsPhysics, createDogs, DEFAULT_PHYSICS } from "../../shared/physics"
 import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
-import RippleWarp from "../../shared/RippleWarp"
 
 const COUNT = 24
 const PLANE_Z = -40
@@ -61,7 +60,6 @@ export default function Scene({ selectionRef, config }) {
           selectedEmissive="#2a2620"
         />
       ))}
-      <RippleWarp />
     </>
   )
 }
