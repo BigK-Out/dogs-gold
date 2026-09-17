@@ -6,12 +6,25 @@ import { DogsPhysics, createDogs } from "../../shared/physics"
 import { DEFAULT_CALM } from "../../shared/repulsion"
 import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
-import DiamondBackground from "./background"
-import TextColorSampler from "./TextColorSampler"
+import RiverBackground from "../../shared/RiverBackground"
+import TextColorSampler from "../../shared/TextColorSampler"
+import { captionRef } from "./captionRef"
 import { makeGoldMaterial } from "./material"
 
-const COUNT = 50
+const COUNT = 12
 const PLANE_Z = -40
+
+// Blue kept near zero to avoid blend artifacts.
+const GOLD = {
+  stops: [
+    [0.04, 0.02, 0.0], // darkest bronze
+    [0.18, 0.1, 0.0], // deep amber
+    [0.42, 0.28, 0.01], // warm gold
+    [0.7, 0.54, 0.03], // bright gold
+    [0.85, 0.72, 0.05], // white gold highlight
+  ],
+  base: [0.01, 0.008, 0.002],
+}
 
 export default function Scene({ selectionRef, config }) {
   const { viewport, camera } = useThree()
@@ -43,7 +56,7 @@ export default function Scene({ selectionRef, config }) {
       <ambientLight intensity={0.2} />
       <spotLight position={[10, 10, 10]} intensity={1} />
       <PointerProjector planeZ={PLANE_Z} />
-      <DiamondBackground />
+      <RiverBackground palette={GOLD} />
       <Environment preset="sunset" />
       <DogsPhysics
         physicsRef={physicsRef}
@@ -66,12 +79,12 @@ export default function Scene({ selectionRef, config }) {
           selectionRef={selectionRef}
           modelUrl={config.modelUrl}
           makeMaterial={makeGoldMaterial}
-          scale={0.065}
-          selectedScale={0.12}
+          scale={0.117}
+          selectedScale={0.216}
           lift={3.5}
         />
       ))}
-      <TextColorSampler />
+      <TextColorSampler targetRef={captionRef} light="#ffe000" threshold={0.25} />
     </>
   )
 }

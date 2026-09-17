@@ -1,11 +1,12 @@
 // src/worlds/stray/index.js
 import Scene from "./Scene"
+import Caption from "./Caption"
 import Record, { recordStyle } from "./Record"
 // Placeholder art — replaced when the real instrument PNG is supplied. Its
 // ratios are the loupe's, and must be re-measured for the real asset.
 import instrumentPng from "../luxury/loupe.png"
 
-const MODEL_URL = `${import.meta.env.BASE_URL}upgradeddog-v1-transformed.glb`
+const MODEL_URL = `${import.meta.env.BASE_URL}lowerclassdog.glb`
 
 export default {
   id: "stray",
@@ -14,6 +15,7 @@ export default {
   camera: { fov: 80, near: 0.01, far: 110 },
 
   Scene,
+  Overlay: Caption,
   Card: Record,
   cardStyle: recordStyle,
 

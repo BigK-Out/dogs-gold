@@ -5,6 +5,7 @@ import { INITIAL as SELECTION_INITIAL } from "./shared/selection";
 import Instrument from "./shared/Instrument";
 import Card from "./shared/Card";
 import RippleWarp from "./shared/RippleWarp";
+import TextColorSampler from "./shared/TextColorSampler";
 import { WORLDS } from "./worlds/registry";
 import {
   nextNavigation,
@@ -30,6 +31,7 @@ export default function App() {
   const [nav, setNav] = useState(NAV_INITIAL);
   const [ready, setReady] = useState(false);
   const selectionRef = useRef(SELECTION_INITIAL);
+  const arrowsRef = useRef(null);
 
   const world = WORLDS[nav.index];
   const dispatch = useCallback(
@@ -113,6 +115,10 @@ export default function App() {
             switch. The effect composer it owns cannot be unmounted without
             leaking its render targets — see shared/RippleWarp.jsx. */}
         <RippleWarp depthOfField={world.depthOfField} />
+        {/* Every world needs it, so it lives with the shell. 0.46 is where
+            white and black give equal contrast, so the label always takes the
+            more legible of the two. */}
+        <TextColorSampler targetRef={arrowsRef} light="#ffffff" threshold={0.46} />
       </Canvas>
 
       {world.Card && (
@@ -133,6 +139,7 @@ export default function App() {
         label={world.label}
         onGo={go}
         disabled={nav.phase !== IDLE}
+        elRef={arrowsRef}
       />
 
       <Curtain opaque={covered} fadeMs={FADE_MS} />

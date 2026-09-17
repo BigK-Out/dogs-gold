@@ -1,5 +1,5 @@
 import * as THREE from "three"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
 
 const riverVert = `
@@ -12,6 +12,8 @@ void main() {
 
 const riverFrag = `
 uniform float uTime;
+uniform vec3 uStops[5];
+uniform vec3 uBase;
 varying vec2 vUv;
 
 float hash(vec2 p) {
@@ -41,22 +43,16 @@ float fbm(vec2 p) {
   return v;
 }
 
-vec3 goldPalette(float t) {
-  // 5 gold tones that blend smoothly — blue kept near zero to avoid blend artifacts
-  vec3 c0 = vec3(0.04, 0.02, 0.00); // darkest bronze
-  vec3 c1 = vec3(0.18, 0.10, 0.00); // deep amber
-  vec3 c2 = vec3(0.42, 0.28, 0.01); // warm gold
-  vec3 c3 = vec3(0.70, 0.54, 0.03); // bright gold
-  vec3 c4 = vec3(0.85, 0.72, 0.05); // white gold highlight
-
+// Five tones blended in order, darkest to brightest.
+vec3 palette(float t) {
   float s = clamp(t, 0.0, 1.0) * 4.0;
   int i = int(s);
   float f = fract(s);
 
-  if (i == 0) return mix(c0, c1, f);
-  if (i == 1) return mix(c1, c2, f);
-  if (i == 2) return mix(c2, c3, f);
-  return mix(c3, c4, f);
+  if (i == 0) return mix(uStops[0], uStops[1], f);
+  if (i == 1) return mix(uStops[1], uStops[2], f);
+  if (i == 2) return mix(uStops[2], uStops[3], f);
+  return mix(uStops[3], uStops[4], f);
 }
 
 void main() {
@@ -79,35 +75,52 @@ void main() {
   float rivers = sin(r.x * 28.0 + t * 0.4) * 0.5 + 0.5;
   rivers = smoothstep(0.49, 0.51, rivers);
 
-  // Layered gold: coarse variation between rivers + fine variation within
+  // Layered tone: coarse variation between rivers + fine variation within
   float coarse = sin(r.x * 5.0 + r.y * 3.0 + t * 0.2) * 0.5 + 0.5;
   float fine   = sin(r.x * 22.0 + r.y * 18.0 + t * 0.5) * 0.5 + 0.5;
   float shimmer = sin(r.x * 60.0 - r.y * 40.0 + t * 1.2) * 0.5 + 0.5;
 
   // Blend layers: coarse sets the general tone, fine adds sub-bands, shimmer adds highlights
   float f = coarse * 0.5 + fine * 0.3 + shimmer * 0.2;
-  vec3 col = goldPalette(f);
+  vec3 col = palette(f);
 
-  // Very dark background between rivers
-  vec3 bg = vec3(0.01, 0.008, 0.002);
-  col = mix(bg, col, rivers);
+  // Dark ground between rivers
+  col = mix(uBase, col, rivers);
 
   gl_FragColor = vec4(col, 1.0);
 }
 `
 
-export default function DiamondBackground() {
+// The luxury gold-river shader, with its colours lifted into a per-world
+// palette: `stops` is five [r, g, b] tones from darkest to brightest, `base` the
+// ground between the rivers.
+//
+// Components are raw floats written straight to gl_FragColor, not hex. A
+// ShaderMaterial does no colour-space conversion, while THREE.Color converts
+// sRGB hex to linear, so hex here would silently shift every tone.
+//
+// Define the palette at module scope: the material is rebuilt whenever its
+// identity changes.
+export default function RiverBackground({ palette }) {
   const { viewport } = useThree()
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
         vertexShader: riverVert,
         fragmentShader: riverFrag,
-        uniforms: { uTime: { value: 0 } },
+        uniforms: {
+          uTime: { value: 0 },
+          uStops: { value: palette.stops.map((c) => new THREE.Vector3(...c)) },
+          uBase: { value: new THREE.Vector3(...palette.base) },
+        },
         depthWrite: false,
       }),
-    [],
+    [palette],
   )
+
+  // Passed as a prop rather than declared as JSX, so r3f never disposes it.
+  // Every world mounts this now, so a switch would otherwise abandon one.
+  useEffect(() => () => mat.dispose(), [mat])
 
   useFrame((state) => {
     mat.uniforms.uTime.value = state.clock.elapsedTime

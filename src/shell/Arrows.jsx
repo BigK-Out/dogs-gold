@@ -2,12 +2,17 @@
 
 // The only clickable elements on a `cursor: none` page. The instrument above
 // them is pointerEvents: none, so it never swallows the click.
-export default function Arrows({ index, count, label, onGo, disabled }) {
+//
+// The colour is set by a TextColorSampler through `elRef`. It used to be white
+// with mix-blend-mode: difference, which inverts to mid-grey over a mid-grey
+// background — the silver dogs and rivers — and the label vanished.
+export default function Arrows({ index, count, label, onGo, disabled, elRef }) {
   const atStart = index === 0
   const atEnd = index === count - 1
 
   return (
     <div
+      ref={elRef}
       style={{
         position: "fixed",
         bottom: "2rem",
@@ -23,7 +28,7 @@ export default function Arrows({ index, count, label, onGo, disabled }) {
         letterSpacing: "0.25em",
         textTransform: "uppercase",
         color: "#ffffff",
-        mixBlendMode: "difference",
+        transition: "color 0.5s ease",
       }}
     >
       <Arrow
