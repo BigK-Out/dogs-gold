@@ -9,7 +9,7 @@ export const HEADER_Z = -18
 // Centred on screen: the headline sits just above the eye line, the sub-line
 // just below it, so the pair straddles the middle of the viewport.
 export const HEADLINE_Y = 1.1
-export const SUBLINE_Y = -1.5
+export const SUBLINE_Y = -2.6
 
 // Each line is scaled to these widths whatever it says, so a long headline and
 // a short one are equally wide and two headlines can cross-fade in place.
@@ -20,7 +20,7 @@ export const SUBLINE_WIDTH = 17
 // vertical extents are measured from the rendered lines rather than derived:
 // the letter heights depend on how much each headline says, since every line is
 // scaled to a fixed width.
-const BLOCK = { halfWidth: HEADLINE_WIDTH / 2 + 1, top: 2.9, bottom: -2.5 }
+const BLOCK = { halfWidth: HEADLINE_WIDTH / 2 + 1, top: 2.9, bottom: -3.5 }
 
 // The same block as seen from the camera, on the dog plane: a dog anywhere in
 // this box would pass behind the lettering. Worlds feed it to the physics loop

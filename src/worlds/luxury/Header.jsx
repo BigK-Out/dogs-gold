@@ -8,22 +8,25 @@ import { diamondTexture } from "../../shared/diamondTexture"
 //
 // The face is white and fully metallic — a diamond reads as its reflections,
 // not as a colour — and the facet map drives both its roughness and its relief.
-const sparkle = diamondTexture()
+const pave = diamondTexture()
 
 const DIAMOND_AND_GOLD = {
   face: {
-    color: "#ffffff",
-    metalness: 1,
-    // The map scales this down per facet, so the stones run from mirror to
-    // this. Wide spread is what separates stones from a uniformly shiny face.
-    roughness: 0.55,
-    roughnessMap: sparkle,
-    bumpMap: sparkle,
-    // Deep enough that each facet catches the light at its own angle.
-    bumpScale: 0.25,
-    // Above 1 the stones outshine the flat gold around them, which is what
-    // makes them read as stones rather than as a rough metal.
-    envMapIntensity: 2.2,
+    map: pave.color,
+    // Part metal only: the photograph already carries its own highlights, and
+    // a fully metallic face would drown them in reflections of the scene.
+    metalness: 0.35,
+    // Left at 1 so the map alone decides which facets are polished.
+    roughness: 1,
+    roughnessMap: pave.roughness,
+    bumpMap: pave.bump,
+    bumpScale: 0.12,
+    envMapIntensity: 1.4,
+    // A little light of its own, so the stones stay bright against the gold
+    // rivers behind them rather than going grey in the scene's shadows.
+    emissiveMap: pave.color,
+    emissive: "#ffffff",
+    emissiveIntensity: 0.18,
   },
   edge: { color: "#f6c65a", metalness: 1, roughness: 0.12, envMapIntensity: 1.4 },
 }
@@ -41,10 +44,10 @@ export default function Header() {
       letterSpacing={0}
       // Shallow: a script's strokes are thin, and a deep extrusion turns them
       // into tubes seen end-on.
-      depth={0.4}
-      // A wide chamfer: the gold rim around each stone-set face is the whole
-      // effect, so it needs room.
-      bevel={0.05}
+      depth={0.12}
+      // The gold rim around each stone-set face: narrow, so it reads as a
+      // setting holding the stones rather than as a gold letter.
+      bevel={0.03}
     />
   )
 }
