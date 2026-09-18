@@ -1,7 +1,10 @@
 import * as THREE from "three"
 import { useEffect, useMemo } from "react"
 import { useFrame } from "@react-three/fiber"
-import { Center, Resize, Text3D } from "@react-three/drei"
+import { Center, Resize, Text3D, useFont } from "@react-three/drei"
+import DiamondScatter from "./DiamondScatter"
+import HeaderLight from "./HeaderLight"
+import SunFlare from "./SunFlare"
 import { FONTS } from "./headerFonts"
 import {
   HEADER_Z,
@@ -27,7 +30,16 @@ const EDGES = {
   bevelOffset: 0,
 }
 
-function Line({ text, y, width, font, material, depth, letterSpacing, bevel, condense }) {
+function Line({ text, y, width, font, material, depth, letterSpacing, bevel, condense, gems }) {
+  // The same glyph outlines the extruded text is built from, so stones scatter
+  // exactly where the letters are. Only valid with no tracking, which is why
+  // `gems` is opt-in: with letterSpacing the geometry no longer matches these.
+  const parsed = useFont(font)
+  const shapes = useMemo(
+    () => (gems ? parsed.generateShapes(text, 1) : null),
+    [gems, parsed, text],
+  )
+
   return (
     <Center position={[0, y, 0]}>
       <group scale={width}>
@@ -47,6 +59,22 @@ function Line({ text, y, width, font, material, depth, letterSpacing, bevel, con
             >
               {text}
             </Text3D>
+            {shapes && (
+              <>
+                {/* Sunk a little into the face, so each stone looks set rather
+                    than balanced on top. */}
+                <DiamondScatter
+                  shapes={shapes}
+                  z={depth - bevel * 0.5}
+                  spacing={gems.spacing}
+                  material={gems.material}
+                />
+                {gems.flare && (
+                  // In front of the stones, where the glare would be.
+                  <SunFlare shapes={shapes} z={depth + 0.35} {...gems.flare} />
+                )}
+              </>
+            )}
           </group>
         </Resize>
       </group>
@@ -64,10 +92,18 @@ function Line({ text, y, width, font, material, depth, letterSpacing, bevel, con
 // `font` picks a typeface from FONTS, `condense` squeezes the letters
 // horizontally, and `opacityRef` is optional — a ref holding 0..1, read every
 // frame, for a world that cross-fades one header into another.
+//
+// `gems` is `{ spacing, material }` and sets real cut stones across the
+// headline's face, turning slowly. Only for a line with no tracking.
+//
+// `light` is a point light's settings, carried at the pointer across the
+// lettering — what makes those stones flash where the loupe passes.
 export default function Header3D({
   headline,
   subline,
   material: look,
+  gems,
+  light,
   font = FONTS.sans,
   condense = CONDENSE,
   bevel = 0.035,
@@ -106,10 +142,23 @@ export default function Header3D({
     for (const one of built) one.opacity = opacityRef.current
   })
 
+  // The sub-line is drawn at about a third of the headline's width, so its
+  // stones would come out too small to read as stones. Coarser spacing keeps
+  // them legible, and the glare is scaled down to match the smaller lettering.
+  const sublineGems = useMemo(() => {
+    if (!gems) return undefined
+    return {
+      ...gems,
+      spacing: gems.spacing * 1.6,
+      flare: gems.flare && { ...gems.flare, size: gems.flare.size * 0.45 },
+    }
+  }, [gems])
+
   return (
     // Tilted so the tops lean away and the camera, at the centre of the
     // screen, looks up at the undersides of the letters.
     <group position={[0, 0, z]} rotation={[TILT, 0, 0]}>
+      {light && <HeaderLight {...light} />}
       <Line
         text={headline}
         y={HEADLINE_Y}
@@ -120,6 +169,7 @@ export default function Header3D({
         depth={depth}
         letterSpacing={letterSpacing}
         bevel={bevel}
+        gems={gems}
       />
       {subline && (
         <Line
@@ -132,6 +182,7 @@ export default function Header3D({
           depth={depth * 0.7}
           letterSpacing={letterSpacing * 1.5}
           bevel={bevel * 1.1}
+          gems={sublineGems}
         />
       )}
     </group>
