@@ -13,6 +13,7 @@ import { introStrength } from "../../shared/intro"
 import TextColorSampler from "../../shared/TextColorSampler"
 import { captionRef } from "./captionRef"
 import { CAPTION_LIGHT } from "./Caption"
+import Beam from "./Beam"
 import Header from "./Header"
 import { HELL_INTRO, HELL_DOG } from "./intro"
 
@@ -29,17 +30,18 @@ const SELECTED_SCALE = 14.64
 // when the dogs are resized.
 const MODEL_HALF_LENGTH = 0.552
 
-// Murky dirt-water brown: low saturation with a faint olive cast, and a dull
-// top stop so the shimmer never reads as a highlight.
+// Murky dirt-water brown, and dark: this world is lit by the strip light over
+// the headline and by whatever the flashlight finds. Roughly a third of the
+// brightness the other worlds run at, so those two are worth carrying.
 const PALETTE = {
   stops: [
-    [0.02, 0.017, 0.01],
-    [0.07, 0.058, 0.035],
-    [0.15, 0.125, 0.075],
-    [0.25, 0.21, 0.13],
-    [0.33, 0.28, 0.18],
+    [0.002, 0.0018, 0.0012],
+    [0.007, 0.006, 0.0036],
+    [0.016, 0.0135, 0.008],
+    [0.027, 0.022, 0.0135],
+    [0.035, 0.03, 0.019],
   ],
-  base: [0.008, 0.007, 0.004],
+  base: [0.001, 0.0008, 0.0005],
 }
 
 // Dark brown with a subtle sheen: part metal, fairly rough, so it catches a soft
@@ -114,13 +116,18 @@ export default function Scene({ selectionRef, config }) {
   return (
     <>
       <color attach="background" args={["#0f1112"]} />
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[4, 7, 5]} intensity={0.7} />
+      {/* Almost nothing: enough that an unlit dog is a silhouette rather than
+          a hole in the screen, and no more. Everything you can actually see
+          here is the strip light over the headline or the flashlight. */}
+      <ambientLight intensity={0.025} />
+      <directionalLight position={[4, 7, 5]} intensity={0.05} />
       <PointerProjector planeZ={PLANE_Z} />
       <RiverBackground palette={PALETTE} intro={HELL_INTRO} />
-      {/* Dim, grimy light, turned down further so the brown only glints. */}
-      <Environment preset="warehouse" environmentIntensity={0.6} />
+      {/* Dim, grimy light, turned right down: the sheen on a dog's back should
+          be the strip light catching it, not a room that is not there. */}
+      <Environment preset="warehouse" environmentIntensity={0.06} />
       <Header />
+      <Beam planeZ={PLANE_Z} />
       <DogsPhysics
         physicsRef={physicsRef}
         count={COUNT}

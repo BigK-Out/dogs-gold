@@ -1,7 +1,7 @@
 import * as THREE from "three"
 import { useMemo, useRef, useEffect } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
-import { EffectComposer, DepthOfField, wrapEffect } from "@react-three/postprocessing"
+import { EffectComposer, DepthOfField, Bloom, wrapEffect } from "@react-three/postprocessing"
 import { Effect } from "postprocessing"
 import { pointer } from "./usePointer"
 import brush from "./burash01.png"
@@ -175,7 +175,7 @@ function RippleScene({ displacementRef }) {
   return null;
 }
 
-function WarpPass({ displacementRef, depthOfField }) {
+function WarpPass({ displacementRef, depthOfField, bloom }) {
   const effectRef = useRef();
 
   useFrame(() => {
@@ -193,9 +193,11 @@ function WarpPass({ displacementRef, depthOfField }) {
   const passes = useMemo(() => {
     const list = [];
     if (depthOfField) list.push(<DepthOfField key="dof" {...depthOfField} />);
+    // Before the warp, so what blooms is the scene rather than the trail.
+    if (bloom) list.push(<Bloom key="bloom" {...bloom} />);
     list.push(<WarpEffect key="warp" ref={effectRef} />);
     return list;
-  }, [depthOfField]);
+  }, [depthOfField, bloom]);
 
   return <EffectComposer>{passes}</EffectComposer>;
 }
@@ -210,15 +212,20 @@ function WarpPass({ displacementRef, depthOfField }) {
 // canvas size — so keeping it up costs nothing and saves rebuilding fifty
 // meshes and a render target per switch.
 //
-// `depthOfField` is optional per world: the blur is a luxury look rather than
-// part of the ripple. It is safe to vary because the DepthOfField wrapper does
-// dispose its effect, both on unmount and on a prop change.
-export default function RippleWarp({ depthOfField }) {
+// `depthOfField` and `bloom` are optional per world: the blur is a luxury look
+// and the bloom belongs to the dark world, where the only light left has to
+// bleed into what is around it. Both are safe to vary because their wrappers
+// dispose their effects, on unmount and on a prop change alike.
+export default function RippleWarp({ depthOfField, bloom }) {
   const displacementRef = useRef(null)
   return (
     <>
       <RippleScene displacementRef={displacementRef} />
-      <WarpPass displacementRef={displacementRef} depthOfField={depthOfField} />
+      <WarpPass
+        displacementRef={displacementRef}
+        depthOfField={depthOfField}
+        bloom={bloom}
+      />
     </>
   )
 }

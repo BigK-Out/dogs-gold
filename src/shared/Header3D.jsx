@@ -116,19 +116,32 @@ export default function Header3D({
   headlineWidth = HEADLINE_WIDTH,
   z = HEADER_Z,
   opacityRef,
+  // A ref holding 0..1+, read every frame and multiplied into the lettering's
+  // emissive — for a world whose header is a light rather than a surface.
+  glowRef,
 }) {
   const material = useMemo(() => {
     // Slot 0 is the front and back faces, slot 1 the bevel and the sides.
     const looks = look.face || look.edge ? [look.face, look.edge] : [look]
-    const built = looks.map(
-      (one) =>
-        new THREE.MeshStandardMaterial({
-          ...one,
-          // Transparency costs a sort and is only needed while cross-fading.
-          transparent: Boolean(opacityRef),
-          opacity: opacityRef ? opacityRef.current : 1,
-        }),
-    )
+    const built = looks.map(({ unlit, ...one }) => {
+      const shared = {
+        ...one,
+        // Transparency costs a sort and is only needed while cross-fading.
+        transparent: Boolean(opacityRef),
+        opacity: opacityRef ? opacityRef.current : 1,
+      }
+      // Unlit: the lettering is itself the light, and no lamp in the world may
+      // touch it. Lit, a lamp hung near it strikes a highlight on whichever
+      // letters it happens to be nearest, and the line reads as half a sign.
+      const made = unlit
+        ? new THREE.MeshBasicMaterial(shared)
+        : new THREE.MeshStandardMaterial(shared)
+      // Kept so a flickering world can scale the glow without losing how
+      // bright the lettering burns when it is steady.
+      made.userData.baseEmissive = made.emissiveIntensity ?? 1
+      made.userData.baseColor = made.color.clone()
+      return made
+    })
     return built.length === 1 ? built[0] : built
   }, [look, opacityRef])
 
@@ -138,9 +151,20 @@ export default function Header3D({
   }, [material])
 
   useFrame(() => {
-    if (!opacityRef) return
+    if (!opacityRef && !glowRef) return
     const built = Array.isArray(material) ? material : [material]
-    for (const one of built) one.opacity = opacityRef.current
+    for (const one of built) {
+      if (opacityRef) one.opacity = opacityRef.current
+      if (!glowRef) continue
+      if (one.isMeshBasicMaterial) {
+        // An unlit material has no emissive to scale, so the colour itself
+        // carries the flicker. Past 1 it is still valid, and the tone mapping
+        // rolls it off to white — which is what the strike wants.
+        one.color.copy(one.userData.baseColor).multiplyScalar(glowRef.current)
+      } else {
+        one.emissiveIntensity = one.userData.baseEmissive * glowRef.current
+      }
+    }
   })
 
   // The sub-line is drawn at about a third of the headline's width, so its

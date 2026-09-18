@@ -114,7 +114,7 @@ export default function App() {
         {/* Deliberately outside the keyed subtree, so it survives every world
             switch. The effect composer it owns cannot be unmounted without
             leaking its render targets — see shared/RippleWarp.jsx. */}
-        <RippleWarp depthOfField={world.depthOfField} />
+        <RippleWarp depthOfField={world.depthOfField} bloom={world.bloom} />
         {/* Every world needs it, so it lives with the shell. 0.46 is where
             white and black give equal contrast, so the label always takes the
             more legible of the two. */}

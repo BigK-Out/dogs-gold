@@ -15,6 +15,31 @@ function pulse(t) {
   return 1 - smoothstep(0.6, 1, t)
 }
 
+// How brightly a failing tube burns `ms` after it is switched on.
+//
+// It strikes far too bright, settles, and from then on holds steady except for
+// its stutters: brief dips, written out and repeated every `period`, because a
+// tube that flickers does the same thing over and over. Randomness gives a
+// nervous shimmer, which is a different fault entirely.
+//
+// `stutters` are [at, duration, level] within a period; `strike` is how much
+// brighter it burns at the moment it lights, dying away over `settle`.
+export function tubeGlow(ms, { stutters = [], period = 6000, strike = 0, settle = 1 }) {
+  if (ms < 0) return 0
+
+  let level = 1
+  const withinPeriod = ms % period
+  for (const [at, duration, dip] of stutters) {
+    if (withinPeriod >= at && withinPeriod < at + duration) {
+      level = Math.min(level, dip)
+    }
+  }
+
+  // The strike: brightest at the instant it lights, gone by `settle`.
+  const flare = ms < settle ? strike * (1 - smoothstep(0, settle, ms)) : 0
+  return level + flare
+}
+
 // How black the screen is `ms` after a world arrives, for a world whose lights
 // fail as it settles.
 //
