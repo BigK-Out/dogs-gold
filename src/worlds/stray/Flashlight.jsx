@@ -16,6 +16,18 @@ import { instrumentGeometry } from "../../shared/Instrument"
 const REACH = 3.4
 const SPREAD = 2.6
 
+// The wedge as a conic gradient from the lens, opening upward: its half-angle
+// is where the box's top corners sit, so the edges fall exactly on the corners.
+const HALF = (Math.atan(SPREAD / 2 / REACH) * 180) / Math.PI
+const EDGE = 9
+const LIGHT = "rgb(212, 230, 255)"
+const WEDGE = `conic-gradient(from ${-HALF}deg at 50% 100%, transparent 0deg, ${LIGHT} ${EDGE}deg, ${LIGHT} ${
+  2 * HALF - EDGE
+}deg, transparent ${2 * HALF}deg, transparent 360deg)`
+// Brightest at the lens, gone by the far end.
+const FALLOFF =
+  "linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.22) 45%, rgba(0, 0, 0, 0) 100%)"
+
 export default function Flashlight({ instrument }) {
   const bodyRef = useRef()
   const coneRef = useRef()
@@ -53,13 +65,13 @@ export default function Flashlight({ instrument }) {
           left: 0,
           width: instrument.size * SPREAD,
           height: instrument.size * REACH,
-          // A wedge: a point at the lens, its full width at the far end.
-          clipPath: "polygon(50% 100%, 100% 0%, 0% 0%)",
-          background:
-            "linear-gradient(to top, rgba(219, 234, 255, 0.5) 0%, rgba(206, 226, 255, 0.22) 45%, rgba(200, 222, 255, 0) 100%)",
-          // Adds to what is behind it, the way light does.
-          mixBlendMode: "screen",
-          filter: "blur(10px)",
+          // A wedge: a point at the lens, its full width at the far end, with
+          // the soft edges in the gradient itself. It was a clip-path over a
+          // blur under a blend mode, and that stack drew the element's whole
+          // box around the wedge whenever it moved.
+          background: WEDGE,
+          WebkitMaskImage: FALLOFF,
+          maskImage: FALLOFF,
           pointerEvents: "none",
           // Under the flashlight itself at 9999, so the body covers the apex.
           zIndex: 9998,
