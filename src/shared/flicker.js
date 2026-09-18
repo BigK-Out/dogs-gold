@@ -40,6 +40,37 @@ export function tubeGlow(ms, { stutters = [], period = 6000, strike = 0, settle 
   return level + flare
 }
 
+// The stutters of every letter in a sign, as `count` lists for tubeGlow.
+//
+// A sign does not fail as one: a handful of its letters are on their way out
+// and the rest burn steady. `unsteady` is the fraction that are faulty, and each
+// of those gets one burst of one to three dips, in a stretch of the period of
+// its own. Written from a seed, not from Math.random(), so the same sign fails
+// the same way every period and every visit — a fault has a rhythm.
+//
+// Nothing dips before `after`, so a burst never lands on the strike.
+export function letterStutters(count, { period, after = 0, unsteady = 0.3, seed = 1 }) {
+  let state = seed >>> 0 || 1
+  const random = () => {
+    state = (state * 1664525 + 1013904223) >>> 0
+    return state / 4294967296
+  }
+
+  return Array.from({ length: count }, () => {
+    if (random() >= unsteady) return []
+    const dips = 1 + Math.floor(random() * 3)
+    const stutters = []
+    // Room for the whole burst inside the period: three dips take at most ~400ms.
+    let at = after + random() * Math.max(period - after - 450, 0)
+    for (let i = 0; i < dips; i++) {
+      const duration = 40 + random() * 55
+      stutters.push([at, duration, 0.08 + random() * 0.45])
+      at += duration + 35 + random() * 40
+    }
+    return stutters
+  })
+}
+
 // How black the screen is `ms` after a world arrives, for a world whose lights
 // fail as it settles.
 //

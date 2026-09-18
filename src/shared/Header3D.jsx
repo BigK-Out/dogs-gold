@@ -6,6 +6,7 @@ import DiamondScatter from "./DiamondScatter"
 import HeaderLight from "./HeaderLight"
 import SunFlare from "./SunFlare"
 import { FONTS } from "./headerFonts"
+import { burnPerLetter, letterStarts } from "./letterFlicker"
 import {
   HEADER_Z,
   HEADLINE_Y,
@@ -28,6 +29,30 @@ const EDGES = {
   bevelSegments: 1,
   curveSegments: 4,
   bevelOffset: 0,
+}
+
+// Slot 0 is the front and back faces, slot 1 the bevel and the sides. `burn` is
+// optional, `{ starts, levels }` from letterFlicker: it lets each letter of the
+// line burn at its own brightness.
+function buildMaterial(look, opacityRef, burn) {
+  const looks = look.face || look.edge ? [look.face, look.edge] : [look]
+  const built = looks.map(({ unlit, ...one }) => {
+    const shared = {
+      ...one,
+      // Transparency costs a sort and is only needed while cross-fading.
+      transparent: Boolean(opacityRef),
+      opacity: opacityRef ? opacityRef.current : 1,
+    }
+    // Unlit: the lettering is itself the light, and no lamp in the world may
+    // touch it. Lit, a lamp hung near it strikes a highlight on whichever
+    // letters it happens to be nearest, and the line reads as half a sign.
+    const made = unlit
+      ? new THREE.MeshBasicMaterial(shared)
+      : new THREE.MeshStandardMaterial(shared)
+    if (burn) burnPerLetter(made, burn.starts, burn.levels)
+    return made
+  })
+  return built.length === 1 ? built[0] : built
 }
 
 function Line({ text, y, width, font, material, depth, letterSpacing, bevel, condense, gems }) {
@@ -116,54 +141,45 @@ export default function Header3D({
   headlineWidth = HEADLINE_WIDTH,
   z = HEADER_Z,
   opacityRef,
-  // A ref holding 0..1+, read every frame and multiplied into the lettering's
-  // emissive — for a world whose header is a light rather than a surface.
-  glowRef,
+  // `{ headline, subline }`, each a letterLevels() array the world rewrites every
+  // frame: how brightly each character burns. For a header that is a light, a
+  // sign whose letters fail one at a time — only for an unlit look.
+  letters,
 }) {
-  const material = useMemo(() => {
-    // Slot 0 is the front and back faces, slot 1 the bevel and the sides.
-    const looks = look.face || look.edge ? [look.face, look.edge] : [look]
-    const built = looks.map(({ unlit, ...one }) => {
-      const shared = {
-        ...one,
-        // Transparency costs a sort and is only needed while cross-fading.
-        transparent: Boolean(opacityRef),
-        opacity: opacityRef ? opacityRef.current : 1,
-      }
-      // Unlit: the lettering is itself the light, and no lamp in the world may
-      // touch it. Lit, a lamp hung near it strikes a highlight on whichever
-      // letters it happens to be nearest, and the line reads as half a sign.
-      const made = unlit
-        ? new THREE.MeshBasicMaterial(shared)
-        : new THREE.MeshStandardMaterial(shared)
-      // Kept so a flickering world can scale the glow without losing how
-      // bright the lettering burns when it is steady.
-      made.userData.baseEmissive = made.emissiveIntensity ?? 1
-      made.userData.baseColor = made.color.clone()
-      return made
+  const parsed = useFont(font)
+
+  // A line's own material when its letters flicker, because the cells and the
+  // levels are the line's own; otherwise both lines share one, as before.
+  const headlineMaterial = useMemo(
+    () =>
+      buildMaterial(
+        look,
+        opacityRef,
+        letters?.headline && {
+          starts: letterStarts(parsed.data, headline, letterSpacing),
+          levels: letters.headline,
+        },
+      ),
+    [look, opacityRef, letters, parsed, headline, letterSpacing],
+  )
+  const sublineMaterial = useMemo(() => {
+    if (!subline || !letters?.subline) return headlineMaterial
+    return buildMaterial(look, opacityRef, {
+      // Tracked wider than the headline, as it is drawn below.
+      starts: letterStarts(parsed.data, subline, letterSpacing * 1.5),
+      levels: letters.subline,
     })
-    return built.length === 1 ? built[0] : built
-  }, [look, opacityRef])
+  }, [look, opacityRef, letters, parsed, subline, letterSpacing, headlineMaterial])
 
   useEffect(() => {
-    const built = Array.isArray(material) ? material : [material]
+    const built = new Set([headlineMaterial, sublineMaterial].flat())
     return () => built.forEach((one) => one.dispose())
-  }, [material])
+  }, [headlineMaterial, sublineMaterial])
 
   useFrame(() => {
-    if (!opacityRef && !glowRef) return
-    const built = Array.isArray(material) ? material : [material]
-    for (const one of built) {
-      if (opacityRef) one.opacity = opacityRef.current
-      if (!glowRef) continue
-      if (one.isMeshBasicMaterial) {
-        // An unlit material has no emissive to scale, so the colour itself
-        // carries the flicker. Past 1 it is still valid, and the tone mapping
-        // rolls it off to white — which is what the strike wants.
-        one.color.copy(one.userData.baseColor).multiplyScalar(glowRef.current)
-      } else {
-        one.emissiveIntensity = one.userData.baseEmissive * glowRef.current
-      }
+    if (!opacityRef) return
+    for (const one of new Set([headlineMaterial, sublineMaterial].flat())) {
+      one.opacity = opacityRef.current
     }
   })
 
@@ -190,7 +206,7 @@ export default function Header3D({
         width={headlineWidth}
         font={font}
         condense={condense}
-        material={material}
+        material={headlineMaterial}
         depth={depth}
         letterSpacing={letterSpacing}
         bevel={bevel}
@@ -203,7 +219,7 @@ export default function Header3D({
           width={SUBLINE_WIDTH}
           font={font}
           condense={condense}
-          material={material}
+          material={sublineMaterial}
           depth={depth * 0.7}
           letterSpacing={letterSpacing * 1.5}
           bevel={bevel * 1.1}

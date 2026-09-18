@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { blackoutAt, tubeGlow } from "./flicker.js"
+import { blackoutAt, tubeGlow, letterStutters } from "./flicker.js"
 
 const PATTERN = { pulses: [0, 1000, 2000], duration: 600, softenFrom: 1800, endsAt: 2600 }
 const HARD = { pulses: [0], duration: 600 }
@@ -70,5 +70,28 @@ test("never leaves the range between clear and black", () => {
   for (let ms = 0; ms <= 3000; ms += 10) {
     const value = blackoutAt(ms, PATTERN)
     assert.ok(value >= 0 && value <= 1, `out of range: ${value} at ${ms}ms`)
+  }
+})
+
+const SIGN = { period: 7400, after: 900, unsteady: 0.3, seed: 7 }
+
+test("a sign fails the same way every time", () => {
+  assert.deepEqual(letterStutters(22, SIGN), letterStutters(22, SIGN))
+})
+
+test("only some letters are faulty", () => {
+  const letters = letterStutters(40, SIGN)
+  const faulty = letters.filter((stutters) => stutters.length > 0).length
+  assert.equal(letters.length, 40)
+  assert.ok(faulty > 0 && faulty < 40, `expected some but not all faulty, got ${faulty}`)
+})
+
+test("every dip lands inside the period, after the strike, and stays a dip", () => {
+  for (const stutters of letterStutters(60, SIGN)) {
+    for (const [at, duration, level] of stutters) {
+      assert.ok(at >= SIGN.after, `dip before the strike settled: ${at}`)
+      assert.ok(at + duration <= SIGN.period, `dip runs past the period: ${at + duration}`)
+      assert.ok(level > 0 && level < 1, `not a dip: ${level}`)
+    }
   }
 })

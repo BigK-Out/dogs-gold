@@ -1,9 +1,10 @@
 // src/worlds/stray/Header.jsx
-import { useRef } from "react"
+import { useMemo, useRef } from "react"
 import { useFrame } from "@react-three/fiber"
 import Header3D from "../../shared/Header3D"
 import { introStrength } from "../../shared/intro"
-import { tubeGlow } from "../../shared/flicker"
+import { tubeGlow, letterStutters } from "../../shared/flicker"
+import { letterLevels } from "../../shared/letterFlicker"
 import { HELL_INTRO, STREET_TUBE } from "./intro"
 
 // Glowing blood-red metal, to be read while the water is still running red.
@@ -38,17 +39,40 @@ const STRIKES_AT = HELL_INTRO.holdMs
 // it is to the sign: a dog under it is lit, one at the edge of the screen is
 // nearly out of reach.
 const LAMPS = [
-  { position: [-13, 2, -17], watts: 850 },
-  { position: [13, 2, -17], watts: 850 },
-  { position: [0, -3, -17], watts: 480 },
+  { position: [-13, 2, -17], watts: 1020 },
+  { position: [13, 2, -17], watts: 1020 },
+  { position: [0, -3, -17], watts: 576 },
 ]
+
+const HEADLINE = "WELCOME TO THE STREETS"
+const SUBLINE = "starve to death or kill to survive"
+
+// One line's letters: the levels the shader reads, and the schedule each letter
+// follows. Faulty letters differ from line to line, so the two seeds differ.
+function lineOf(text, seed) {
+  return {
+    text,
+    levels: letterLevels(),
+    stutters: letterStutters(text.length, {
+      period: STREET_TUBE.period,
+      // Nothing dips while the strike is still dying away.
+      after: STREET_TUBE.settle + text.length * STREET_TUBE.stagger,
+      unsteady: STREET_TUBE.unsteady,
+      seed: STREET_TUBE.seed + seed,
+    }),
+  }
+}
 
 export default function Header() {
   const hellOpacity = useRef(1)
   const streetsOpacity = useRef(0)
-  const glow = useRef(0)
   const lampRefs = useRef([])
   const startedAt = useRef(null)
+  const lines = useMemo(() => [lineOf(HEADLINE, 0), lineOf(SUBLINE, 1)], [])
+  const letters = useMemo(
+    () => ({ headline: lines[0].levels, subline: lines[1].levels }),
+    [lines],
+  )
 
   useFrame((state) => {
     const now = state.clock.elapsedTime
@@ -59,13 +83,26 @@ export default function Header() {
     hellOpacity.current = strength
     streetsOpacity.current = 1 - strength
 
-    glow.current = tubeGlow(ms - STRIKES_AT, STREET_TUBE)
-    // The light the lettering throws into the world, so the dogs below it dim
-    // and brighten with the tube rather than the two disagreeing. Two lamps,
-    // one per line, because a single one at the centre lights the middle of
-    // the headline and leaves its ends in the dark.
+    // Each letter burns on its own schedule. Spaces are written too: a cell is
+    // a character, and a space simply has nothing drawn in it.
+    let total = 0
+    let count = 0
+    for (const { levels, stutters } of lines) {
+      for (let i = 0; i < stutters.length; i++) {
+        levels[i] = tubeGlow(ms - STRIKES_AT - i * STREET_TUBE.stagger, {
+          ...STREET_TUBE,
+          stutters: stutters[i],
+        })
+        total += levels[i]
+        count++
+      }
+    }
+    // The light the lettering throws into the world is what the sign as a whole
+    // gives, so the dogs dim a little when a letter fails and are lit in full
+    // when they all strike — never the whole pack blinking with one letter.
+    const overall = total / count
     for (const lamp of lampRefs.current) {
-      if (lamp) lamp.intensity = lamp.userData.watts * glow.current
+      if (lamp) lamp.intensity = lamp.userData.watts * overall
     }
   }, -0.25) // with the Scene's own intro clock, before anything draws
 
@@ -80,12 +117,12 @@ export default function Header() {
       {/* A little further back, so two transparent headers never fight over
           the same depth while both are partly visible. */}
       <Header3D
-        headline="WELCOME TO THE STREETS"
-        subline="starve to death or kill to survive"
+        headline={HEADLINE}
+        subline={SUBLINE}
         material={STREETS}
         z={-18.5}
         opacityRef={streetsOpacity}
-        glowRef={glow}
+        letters={letters}
       />
       {/* Hung with the lettering and throwing its light back into the world.
           Far enough forward of the pack to reach it, and bright enough to

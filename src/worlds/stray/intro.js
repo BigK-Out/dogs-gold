@@ -43,20 +43,21 @@ export const HELL_FLICKER = {
   endsAt: 4100,
 }
 
-// Once hell drains, the lettering is the only light left in the world: a tube
-// striking hard, settling, and stuttering from then on. Measured from the
-// moment it appears, not from the world's arrival.
+// Once hell drains, the lettering is the only light left in the world: a sign
+// striking hard, settling, and then failing a letter at a time. Measured from
+// the moment it appears, not from the world's arrival.
+//
+// It is the letters that stutter, not the sign: `unsteady` is the fraction of
+// them that are on their way out, each dipping in a burst of its own once every
+// `period`. `stagger` is how long each letter waits for the one before it to
+// strike, so the strike runs along the line rather than landing all at once.
 export const STREET_TUBE = {
   strike: 2.6,
   settle: 900,
   period: 7400,
-  stutters: [
-    [1200, 70, 0.12],
-    [1310, 50, 0.55],
-    [1420, 40, 0.18],
-    [4300, 90, 0.25],
-    [6100, 55, 0.4],
-  ],
+  unsteady: 0.3,
+  seed: 7,
+  stagger: 35,
 }
 
 // The dogs' look through the intro: bright blood-red metal. Metalness stops
