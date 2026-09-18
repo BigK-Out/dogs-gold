@@ -67,6 +67,15 @@ image. The luxury loupe's handle occupies the lower right, so its glass is up
 and to the left of centre — centring the PNG on the pointer would put the handle
 under the cursor. Re-measure these whenever the art is replaced.
 
+## Credits
+
+- `src/shared/textures/diamond.png` — diamond photograph from Vecteezy,
+  downscaled from the original to 512px.
+- `src/worlds/stray/flashlight.png` — flashlight image from Pngtree,
+  downscaled from the original.
+- `src/shared/fonts/great-vibes.typeface.json` — Great Vibes by Robert Leuschke
+  (TypeSETit), SIL Open Font License, converted from the Google Fonts TTF.
+
 ## Deploying
 
 Built by `.github/workflows/deploy.yml` and served from `/vscodemainrepo/` on
