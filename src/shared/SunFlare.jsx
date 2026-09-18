@@ -151,5 +151,11 @@ export default function SunFlare({ shapes, z, color = "#ffffff", size = 3.2, ris
     material.rotation += delta * 0.25
   })
 
-  return <sprite ref={spriteRef} material={material} />
+  return (
+    // Mounted at no size. Header3D centres and sizes each line from its bounding
+    // box, measured once as it mounts, and a sprite counts: sitting at the
+    // lettering's left edge at full size, it padded that side of the box and
+    // pushed the whole line off to the right. The first frame sets its size.
+    <sprite ref={spriteRef} material={material} scale={0} />
+  )
 }
