@@ -109,9 +109,10 @@ export default function Header3D({
   bevel = 0.035,
   // Script faces join letter to letter, so they want no tracking at all.
   letterSpacing = 0.08,
-  // Extrusion, as a fraction of the letters' height. Deep enough to read as
-  // towers for a grotesque; a script's thin strokes need far less.
-  depth = 0.85,
+  // Extrusion, as a fraction of the letters' height. Shallow: every world's
+  // header reads as a plate with a bright edge, not as a block of towers, and
+  // a deep extrusion turns thin strokes into tubes seen end-on.
+  depth = 0.12,
   headlineWidth = HEADLINE_WIDTH,
   z = HEADER_Z,
   opacityRef,

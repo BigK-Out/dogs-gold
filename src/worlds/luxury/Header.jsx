@@ -84,9 +84,6 @@ export default function Header() {
       font={FONTS.script}
       condense={1}
       letterSpacing={0}
-      // Shallow: a script's strokes are thin, and a deep extrusion turns them
-      // into tubes seen end-on.
-      depth={0.12}
       // The gold rim around each stone-set face: narrow, so it reads as a
       // setting holding the stones rather than as a gold letter.
       bevel={0.03}
