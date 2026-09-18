@@ -73,6 +73,8 @@ under the cursor. Re-measure these whenever the art is replaced.
   downscaled from the original to 512px.
 - `src/worlds/stray/flashlight.png` — flashlight image from Pngtree,
   downscaled from the original.
+- `src/worlds/middle/pencil.png` — pencil image from Vecteezy, cropped to the
+  drawn pixels and downscaled from 6250px to 400px.
 - `src/shared/fonts/great-vibes.typeface.json` — Great Vibes by Robert Leuschke
   (TypeSETit), SIL Open Font License, converted from the Google Fonts TTF.
 
