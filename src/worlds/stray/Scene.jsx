@@ -8,6 +8,7 @@ import { DogsPhysics, createDogs, DEFAULT_PHYSICS } from "../../shared/physics"
 import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
 import RiverBackground from "../../shared/RiverBackground"
+import { headerBarrier } from "../../shared/headerLayout"
 import { introStrength } from "../../shared/intro"
 import TextColorSampler from "../../shared/TextColorSampler"
 import { captionRef } from "./captionRef"
@@ -86,7 +87,11 @@ export default function Scene({ selectionRef, config }) {
       ...DEFAULT_PHYSICS,
       collisionRadius: SCALE * MODEL_HALF_LENGTH,
       // Keeps dogs off the bottom-right caption — the same box as luxury's.
-      barriers: [{ x0: hw * 0.55, y0: -hh, x1: hw, y1: -hh * 0.55 }],
+      barriers: [
+        { x0: hw * 0.55, y0: -hh, x1: hw, y1: -hh * 0.55 },
+        // Keeps dogs from drifting behind the header.
+        headerBarrier(PLANE_Z),
+      ],
     }),
     [hw, hh],
   )

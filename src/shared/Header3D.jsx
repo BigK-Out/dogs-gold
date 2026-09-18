@@ -5,18 +5,15 @@ import { Center, Resize, Text3D } from "@react-three/drei"
 // Ships with three, so no asset to serve and no BASE_URL to get wrong. The
 // bundled JSON is ~60KB.
 import font from "three/examples/fonts/helvetiker_bold.typeface.json"
+import {
+  HEADER_Z,
+  HEADLINE_Y,
+  HEADLINE_WIDTH,
+  SUBLINE_Y,
+  SUBLINE_WIDTH,
+} from "./headerLayout"
 
-// The dogs live at z = -40; the header sits well in front of them, so they
-// drift behind it rather than through it. At this distance the camera's 80°
-// field of view spans ~30 world units vertically.
-const Z = -18
 const TILT = -0.12
-const HEADLINE_Y = 10.4
-const SUBLINE_Y = 6.6
-// Each line is scaled to these widths whatever it says, so a long headline and
-// a short one are equally wide and two headlines can cross-fade in place.
-const HEADLINE_WIDTH = 42
-const SUBLINE_WIDTH = 17
 
 // Letters are squeezed horizontally into tower proportions: narrow, tall and
 // deep. The extrusion is nearly as deep as the letters are tall, so the block
@@ -69,7 +66,7 @@ export default function Header3D({
   subline,
   material: look,
   headlineWidth = HEADLINE_WIDTH,
-  z = Z,
+  z = HEADER_Z,
   opacityRef,
 }) {
   const material = useMemo(

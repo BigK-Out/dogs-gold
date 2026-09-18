@@ -7,6 +7,7 @@ import { DEFAULT_CALM } from "../../shared/repulsion"
 import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
 import RiverBackground from "../../shared/RiverBackground"
+import { headerBarrier } from "../../shared/headerLayout"
 import TextColorSampler from "../../shared/TextColorSampler"
 import Header from "./Header"
 import { captionRef } from "./captionRef"
@@ -14,6 +15,15 @@ import { makeGoldMaterial } from "./material"
 
 const COUNT = 12
 const PLANE_Z = -40
+
+const SCALE = 0.117
+const SELECTED_SCALE = 0.216
+// Half the model's longest axis, in its own units, read from the GLB bounds.
+// Times SCALE it gives a collision circle a spinning dog's body never leaves,
+// so dogs bump instead of clipping through each other — and it follows SCALE
+// when the dogs are resized. The old 0.75 was measured for dogs a third of
+// this size, leaving a collision dot inside a much larger body.
+const MODEL_HALF_LENGTH = 61.25
 
 // Blue kept near zero to avoid blend artifacts.
 const GOLD = {
@@ -37,9 +47,13 @@ export default function Scene({ selectionRef, config }) {
 
   const physicsConfig = useMemo(
     () => ({
-      collisionRadius: 0.75,
+      collisionRadius: SCALE * MODEL_HALF_LENGTH,
       // Keeps dogs off the bottom-right caption.
-      barriers: [{ x0: hw * 0.55, y0: -hh, x1: hw, y1: -hh * 0.55 }],
+      barriers: [
+        { x0: hw * 0.55, y0: -hh, x1: hw, y1: -hh * 0.55 },
+        // Keeps dogs from drifting behind the header.
+        headerBarrier(PLANE_Z),
+      ],
       repulsionRadius: 4.5,
       repulsionGain: 0.06,
       // A slow pointer inside the loupe's glass is inspecting, not shooing, so
@@ -81,8 +95,8 @@ export default function Scene({ selectionRef, config }) {
           selectionRef={selectionRef}
           modelUrl={config.modelUrl}
           makeMaterial={makeGoldMaterial}
-          scale={0.117}
-          selectedScale={0.216}
+          scale={SCALE}
+          selectedScale={SELECTED_SCALE}
           lift={3.5}
         />
       ))}
