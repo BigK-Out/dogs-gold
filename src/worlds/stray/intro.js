@@ -22,6 +22,27 @@ export const HELL_INTRO = {
   fadeMs: 1600,
 }
 
+// The lights failing as you arrive: the screen cuts to black and back while
+// the water runs red. Written out rather than generated — a failing light has a
+// rhythm, a long dark, a stutter, then a pause that makes you think it is over,
+// and randomness gives an even stammer instead.
+//
+// The last cuts land inside the intro's own fade, and each is lighter than the
+// one before, so the world settles rather than stopping dead.
+export const HELL_FLICKER = {
+  // Each cut falls and lifts over 0.6s, the same as the curtain between worlds.
+  duration: 600,
+  pulses: [
+    150, // the lights go almost at once
+    1000,
+    1750, // a longer gap: it seems to be over
+    2900,
+    3500,
+  ],
+  softenFrom: 2600,
+  endsAt: 4100,
+}
+
 // The dogs' look through the intro: bright blood-red metal. Metalness stops
 // short of 1 so some of the red stays diffuse and bright under the dimmed
 // environment, rather than only showing where it reflects.
