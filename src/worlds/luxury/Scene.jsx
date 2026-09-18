@@ -8,6 +8,7 @@ import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
 import RiverBackground from "../../shared/RiverBackground"
 import TextColorSampler from "../../shared/TextColorSampler"
+import Header from "./Header"
 import { captionRef } from "./captionRef"
 import { makeGoldMaterial } from "./material"
 
@@ -58,6 +59,7 @@ export default function Scene({ selectionRef, config }) {
       <PointerProjector planeZ={PLANE_Z} />
       <RiverBackground palette={GOLD} />
       <Environment preset="sunset" />
+      <Header />
       <DogsPhysics
         physicsRef={physicsRef}
         count={COUNT}

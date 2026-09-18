@@ -10,6 +10,7 @@ import Dog from "../../shared/Dog"
 import RiverBackground from "../../shared/RiverBackground"
 import TextColorSampler from "../../shared/TextColorSampler"
 import { captionRef } from "./captionRef"
+import Header from "./Header"
 import { CAPTION_LIGHT } from "./Caption"
 
 const COUNT = 20
@@ -76,6 +77,7 @@ export default function Scene({ selectionRef, config }) {
       {/* "city" rather than luxury's "sunset": neutral-cool light keeps the
           silver from reading as warm. */}
       <Environment preset="city" />
+      <Header />
       <DogsPhysics
         physicsRef={physicsRef}
         count={COUNT}

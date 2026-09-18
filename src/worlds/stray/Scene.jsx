@@ -1,16 +1,19 @@
 // src/worlds/stray/Scene.jsx
 import * as THREE from "three"
-import { useMemo, useRef } from "react"
-import { useThree } from "@react-three/fiber"
+import { useCallback, useMemo, useRef } from "react"
+import { useFrame, useThree } from "@react-three/fiber"
 import { Environment } from "@react-three/drei"
 import { PointerProjector } from "../../shared/usePointer"
 import { DogsPhysics, createDogs, DEFAULT_PHYSICS } from "../../shared/physics"
 import { DogSelector } from "../../shared/useDogSelection"
 import Dog from "../../shared/Dog"
 import RiverBackground from "../../shared/RiverBackground"
+import { introStrength } from "../../shared/intro"
 import TextColorSampler from "../../shared/TextColorSampler"
 import { captionRef } from "./captionRef"
 import { CAPTION_LIGHT } from "./Caption"
+import Header from "./Header"
+import { HELL_INTRO, HELL_DOG } from "./intro"
 
 const COUNT = 28
 const PLANE_Z = -40
@@ -42,7 +45,7 @@ const PALETTE = {
 // glint rather than luxury's gold or middle class's mirror silver. The metal
 // half reflects the dimmed <Environment> below.
 function makeBrownMaterial() {
-  return new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshStandardMaterial({
     color: new THREE.Color().setHSL(
       0.06 + Math.random() * 0.02,
       0.35 + Math.random() * 0.15,
@@ -51,6 +54,24 @@ function makeBrownMaterial() {
     roughness: 0.45 + Math.random() * 0.1,
     metalness: 0.6,
   })
+  // The dog's own look, kept so the intro can blend back to it exactly.
+  material.userData.settledLook = {
+    color: material.color.clone(),
+    metalness: material.metalness,
+    roughness: material.roughness,
+  }
+  return material
+}
+
+// Blends a dog from its own look toward HELL_DOG by the intro's strength.
+function tintForIntro(material, strength) {
+  // Once settled there is nothing left to blend; skip the writes.
+  if (strength === 0 && material.userData.settled) return
+  const own = material.userData.settledLook
+  material.color.lerpColors(own.color, HELL_DOG.color, strength)
+  material.metalness = own.metalness + (HELL_DOG.metalness - own.metalness) * strength
+  material.roughness = own.roughness + (HELL_DOG.roughness - own.roughness) * strength
+  material.userData.settled = strength === 0
 }
 
 export default function Scene({ selectionRef, config }) {
@@ -70,15 +91,31 @@ export default function Scene({ selectionRef, config }) {
     [hw, hh],
   )
 
+  // The intro's strength this frame, for the dogs. Measured from this Scene's
+  // first frame, the same frame RiverBackground starts its own clock on, so the
+  // dogs and the water turn red and settle together.
+  const introRef = useRef(1)
+  const introStartedAt = useRef(null)
+  useFrame((state) => {
+    const now = state.clock.elapsedTime
+    if (introStartedAt.current === null) introStartedAt.current = now
+    introRef.current = introStrength((now - introStartedAt.current) * 1000, HELL_INTRO)
+  }, -0.25) // after selection (-0.5), before Dog (0)
+  const animateMaterial = useCallback(
+    (material) => tintForIntro(material, introRef.current),
+    [],
+  )
+
   return (
     <>
       <color attach="background" args={["#0f1112"]} />
       <ambientLight intensity={0.35} />
       <directionalLight position={[4, 7, 5]} intensity={0.7} />
       <PointerProjector planeZ={PLANE_Z} />
-      <RiverBackground palette={PALETTE} />
+      <RiverBackground palette={PALETTE} intro={HELL_INTRO} />
       {/* Dim, grimy light, turned down further so the brown only glints. */}
       <Environment preset="warehouse" environmentIntensity={0.6} />
+      <Header />
       <DogsPhysics
         physicsRef={physicsRef}
         count={COUNT}
@@ -100,6 +137,7 @@ export default function Scene({ selectionRef, config }) {
           selectionRef={selectionRef}
           modelUrl={config.modelUrl}
           makeMaterial={makeBrownMaterial}
+          animateMaterial={animateMaterial}
           nodeName="model_0"
           scale={SCALE}
           selectedScale={SELECTED_SCALE}

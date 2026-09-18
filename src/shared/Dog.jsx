@@ -14,6 +14,9 @@ export default function Dog({
   selectedScale,
   lift,
   selectedEmissive = "#3a2a00",
+  // Optional `(material, index) => void`, run every frame before the selection
+  // glow — for a world that animates its dogs' look over time.
+  animateMaterial,
 }) {
   const ref = useRef()
   const { nodes, materials } = useGLTF(modelUrl)
@@ -54,6 +57,8 @@ export default function Dog({
     const grown = (s - scale) / (selectedScale - scale)
     ref.current.position.set(d.x, d.y, d.z + lift * grown)
     ref.current.rotation.set(d.rX, d.rY, d.rZ)
+
+    if (animateMaterial) animateMaterial(material, index)
 
     if (material.emissive) {
       material.emissive.lerp(isSelected ? emissiveTarget : emissiveOff, 0.12)
