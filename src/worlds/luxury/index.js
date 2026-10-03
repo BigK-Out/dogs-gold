@@ -3,7 +3,7 @@ import Caption from "./Caption"
 import Certificate, { certificateStyle } from "./Certificate"
 import loupePng from "./loupe.png"
 
-// Served from /vscodemainrepo/ on Pages, so a root-absolute path would 404 and
+// Served from /dogs-gold/ on Pages, so a root-absolute path would 404 and
 // leave an empty gold scene with no obvious error. BASE_URL always ends in "/".
 const MODEL_URL = `${import.meta.env.BASE_URL}upgradeddog-v1-transformed.glb`
 

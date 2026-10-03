@@ -4,6 +4,6 @@ import glsl from 'vite-plugin-glsl';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/vscodemainrepo/',
+  base: '/dogs-gold/',
   plugins: [react(),glsl()],
 })

@@ -80,7 +80,7 @@ under the cursor. Re-measure these whenever the art is replaced.
 
 ## Deploying
 
-Built by `.github/workflows/deploy.yml` and served from `/vscodemainrepo/` on
+Built by `.github/workflows/deploy.yml` and served from `/dogs-gold/` on
 GitHub Pages, so `vite.config.js` sets `base` to match. **Every `public/` asset
 must route through `import.meta.env.BASE_URL`** — a root-absolute path 404s
 under the prefix and yields a scene with no dogs and no visible error.
