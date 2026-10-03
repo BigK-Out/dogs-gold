@@ -4,7 +4,87 @@ Three worlds of dogs, navigated by the arrows at the bottom of the screen:
 **luxury**, **middle class**, **stray**. Each is a react-three-fiber scene with
 its own background, palette, instrument, and revealed document.
 
+**Live:** https://bigk-out.github.io/dogs-gold/
+
 Desktop only — the interaction is pointer-driven and the page hides the cursor.
+
+![The luxury world: gold dogs drifting over a river of gold, with the loupe throwing a flare off the diamond lettering](docs/screenshots/luxury.jpg)
+
+## Features
+
+### Three worlds, one descent
+
+The arrows (or ← / →) move down a class ladder, one world at a time. Each
+switch fades through black, and the curtain only lifts once the next world's
+models have loaded, so you never see an empty scene. Each world has its own
+dogs, background, header, pointer instrument and dog card.
+
+### Luxury — the showroom
+
+- Gold poodles drift over a shader-animated river of gold.
+- The headline is extruded script lettering set with real cut stones, each one
+  turning on its own axis. A lamp travels with the loupe, so the stones flash
+  as the glass passes, and a sunburst flare blooms wherever it crosses a letter.
+- Hold the **jeweller's loupe** over a dog and it lifts toward you; keep it there
+  and a **certificate of value** appears: name, age, origin, pedigree, grade,
+  certificate number and price.
+
+![The loupe locked on a gold poodle, with its certificate showing name, origin, pedigree, grade and value](docs/screenshots/luxury-certificate.jpg)
+
+### Middle class — the fridge door
+
+- Silver dogs over cold slate water.
+- The header is spelled out in **fridge magnets**: each letter its own mesh and
+  colour, set down slightly crooked. Run the pointer through them and they get
+  knocked aside, then spring back and rock into place.
+- The instrument is a **pencil**, and a locked dog gets a **note pinned to the
+  fridge**: feeding times, when the vet is due, whose turn it is to walk it.
+
+| Knocking the magnets | The fridge note |
+| --- | --- |
+| ![The pencil knocking magnet letters out of line](docs/screenshots/middle.jpg) | ![A handwritten-style fridge note for a dog called Cooper](docs/screenshots/middle-note.jpg) |
+
+### Stray — the streets
+
+- You arrive in red: the water runs like blood, the dogs turn red, and the
+  lights cut out a few times before the scene settles into dark, dirty water.
+- The lettering then lights up like a failing strip light. Individual letters
+  flicker on their own schedule, and it's the only real light in the world, so
+  the dogs nearest the sign are the ones you can see.
+- The instrument is a **flashlight** with a working beam: a spotlight in the
+  scene lights the dogs it passes over.
+- A locked dog gets a **pound intake slip**: tag number, where it was found,
+  its condition and temper, days held, and an UNCLAIMED stamp once its hold has
+  run out.
+
+| Arrival | The streets | The intake slip |
+| --- | --- | --- |
+| ![Red water and red dogs behind the arrival headline](docs/screenshots/stray-arrival.jpg) | ![The flashlight beam over dark water and the lit WELCOME TO THE STREETS sign](docs/screenshots/stray.jpg) | ![A pound intake slip stamped UNCLAIMED](docs/screenshots/stray-slip.jpg) |
+
+### Throughout
+
+- A rippling brush-stroke distortion trails the pointer in every world.
+- Fast pointer movement scatters the pack; a slow pointer near a dog leaves it
+  alone, so you can inspect it.
+- Every dog's card is generated from its index, so the same dog always shows
+  the same details.
+- The arrow label switches between black and white based on the pixels behind
+  it, so it stays readable over any background.
+
+## Stack
+
+| | |
+| --- | --- |
+| UI | [React 18](https://react.dev) |
+| 3D | [three.js](https://threejs.org) r168 via [react-three-fiber](https://r3f.docs.pmnd.rs) 8 |
+| 3D helpers | [drei](https://github.com/pmndrs/drei) — `Text3D`, `Environment`, `useGLTF`, `Center`, `Resize` |
+| Post-processing | [@react-three/postprocessing](https://github.com/pmndrs/react-postprocessing) — depth of field, bloom, and a custom warp effect |
+| Shaders | Hand-written GLSL: the river backgrounds, the pointer warp, per-letter flicker |
+| Models | glTF (`.glb`), one per world |
+| Build | [Vite](https://vite.dev) 5 with the SWC React plugin |
+| Tests | Node's built-in `node:test` — no test framework dependency |
+| Lint | ESLint 9 (flat config) |
+| Deploy | GitHub Actions → GitHub Pages |
 
 ## Run
 
